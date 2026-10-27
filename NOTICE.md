@@ -47,6 +47,7 @@ GPL §5a 要求标注修改。约定：**每个版本在此登记对上游文件
 | 2026-10-27 | 未发版 | 本机 agent 配置：`.gitignore` 排除 `.orca.local.yaml`；新增 `.worktreeinclude`，供 Orca 在新工作区复制本机偏好 |
 | 2026-10-27 | 未发版 | Web Media Clipper 骨架接线：`manifest.json` 新增 `wmc/overlay.js` 内容脚本条目；`_locales/{zh_CN,en}` 新增 `wmc_panelTitle`；`js/init.js` 末尾新增一行导入 `/wmc/sw.js`（`// [WMC]` 标记）；`justfile` 的 `prepare` 追加复制 `wmc/` 与根 `manifest.json`（此前构建产物缺 `manifest.json`） |
 | 2026-10-27 | 未发版 | 新增第三方依赖 `wmc/vendor/mp4box.all.min.js`（npm `mp4box@0.5.3`，BSD-3-Clause；来源、完整性与 sha256 见 `wmc/vendor/README.md`）与 `wmc/mp4cut.js`（MP4 Range 无损切段模块，不含上游代码） |
+| 2026-10-27 | 未发版 | SPEC-001 T6：`wmc/sw.js` 由骨架扩为 `wmcResolve` / `wmcSubmit` 实现（仍只接管 `wmc` 前缀消息，上游监听器不变）；`_locales/{zh_CN,en}` 新增 `wmc_` 前缀的状态、按钮与离开确认文案（仅新增，未改既有条目） |
 | — | 0.1.0 | （待填）新增选段与任务模块 |
 
 ## 5. 品牌隔离清单（fork 后必须替换）

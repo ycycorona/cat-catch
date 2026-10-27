@@ -23,6 +23,39 @@
   "wmc_needEnd": {
     "message": "请先标记终点再下载"
   },
+  "wmc_statusQueued": {
+    "message": "排队中"
+  },
+  "wmc_statusRunning": {
+    "message": "下载中"
+  },
+  "wmc_statusDone": {
+    "message": "已完成"
+  },
+  "wmc_statusFailed": {
+    "message": "失败"
+  },
+  "wmc_statusCanceled": {
+    "message": "已取消"
+  },
+  "wmc_statusInterrupted": {
+    "message": "已中断"
+  },
+  "wmc_cancel": {
+    "message": "取消"
+  },
+  "wmc_retry": {
+    "message": "重试"
+  },
+  "wmc_userRange": {
+    "message": "选段"
+  },
+  "wmc_actualRange": {
+    "message": "实际"
+  },
+  "wmc_leaveConfirm": {
+    "message": "还有未完成的下载任务，关闭面板会中断它们。"
+  },
   "confirm": {
     "message": "确认"
   },

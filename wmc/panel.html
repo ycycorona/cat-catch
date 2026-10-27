@@ -3,10 +3,34 @@
 <head>
     <meta charset="utf-8">
     <title>Web Media Clipper</title>
+    <style>
+        body { margin: 0; padding: 16px; font: 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+            background: #f9fafb; color: #111827; }
+        h1 { margin: 0 0 12px; font-size: 16px; }
+        ul { list-style: none; margin: 0; padding: 0; }
+        li { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; margin-bottom: 8px;
+            border-radius: 10px; background: #fff; box-shadow: 0 1px 3px rgba(17, 24, 39, .12); }
+        .color { flex: none; width: 6px; align-self: stretch; border-radius: 3px; }
+        .main { flex: 1; min-width: 0; }
+        .title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .meta { color: #4b5563; font-size: 12px; font-variant-numeric: tabular-nums; }
+        .meta.error { color: #b91c1c; }
+        .actions { flex: none; display: flex; gap: 6px; }
+        button { font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 6px; cursor: pointer;
+            border: 1px solid #d1d5db; background: #fff; color: #111827; }
+        button:hover { background: #f3f4f6; }
+        button:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+    </style>
 </head>
 <body>
     <h1 id="wmc_title"></h1>
     <ul id="wmc_clips"></ul>
-    <script src="panel.js"></script>
+    <!-- 执行宿主：上游 setRequestHeaders 依赖 js/init.js 的 G 与 js/function.js -->
+    <script src="/js/polyfill.js"></script>
+    <script src="/js/init.js"></script>
+    <script src="/js/function.js"></script>
+    <script src="/wmc/vendor/mp4box.all.min.js"></script>
+    <script src="/wmc/mp4cut.js"></script>
+    <script src="/wmc/panel.js"></script>
 </body>
 </html>
