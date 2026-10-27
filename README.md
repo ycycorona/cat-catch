@@ -1,5 +1,8 @@
 <p align="center"> [中文] | [<a href="README_en.md">English</a>] | [<a href="README_es.md">Español</a>] | [<a href="README_ru.md">Русский</a>]</p>
 
+> **二次开发分支**：本项目派生自 [cat-catch（猫抓）](https://github.com/xifangczy/cat-catch)，
+> 遵循 GPL-3.0 并已作修改。版权归属、修改记录与品牌隔离清单见 [NOTICE.md](NOTICE.md)。
+
 # 📑简介
 
 猫抓(cat-catch) 资源嗅探扩展，能够帮你筛选列出当前页面的资源。
