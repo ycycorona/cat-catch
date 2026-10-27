@@ -5,3 +5,6 @@ dist/
 *.zip
 *.pem
 /.workbuddy/memory
+
+# Local agent preferences
+.orca.local.yaml

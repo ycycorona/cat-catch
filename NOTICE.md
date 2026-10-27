@@ -44,6 +44,7 @@ GPL §5a 要求标注修改。约定：**每个版本在此登记对上游文件
 | 日期 | 版本 | 修改摘要 |
 |---|---|---|
 | 2026-10-27 | 未发版 | 品牌隔离：`_locales/*` 的 `catCatch` → Web Media Clipper、`description` 改中立描述；`manifest*.json` `homepage_url` 改本分支仓库；`img/icon.png`、`img/icon128.png`、`img/icon-disable.png` 原地换中性占位图标 |
+| 2026-10-27 | 未发版 | 本机 agent 配置：`.gitignore` 排除 `.orca.local.yaml`；新增 `.worktreeinclude`，供 Orca 在新工作区复制本机偏好 |
 | — | 0.1.0 | （待填）新增选段与任务模块 |
 
 ## 5. 品牌隔离清单（fork 后必须替换）
