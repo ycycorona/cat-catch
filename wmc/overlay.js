@@ -128,6 +128,24 @@
 
         let start = null; // 待定起点
         let pendingSlot = 0;
+        let capability = null; // 最近一次 wmcResolve 的结果：{ selectable, kind, reason }
+        const blocked = () => !!(capability && capability.selectable === false);
+        // AC-12：能力判定每次只问 SW 一次，判不出（F6）或直播/加密/DRM 时置灰添加选段。
+        const resolveMedia = () => {
+            chrome.runtime.sendMessage({
+                Message: "wmcResolve",
+                url: video.currentSrc,
+                currentSrc: video.currentSrc,
+                duration: video.duration,
+                drm: !!video.mediaKeys,
+                mediaStream: !!video.srcObject,
+            }, (response) => {
+                const error = chrome.runtime.lastError;
+                if (error || signal.aborted) return;
+                capability = response || null;
+                render();
+            });
+        };
         const segments = [null, null]; // 槽位固定段色，删除后复用空槽。
         const segEls = segments.map((_, index) => {
             const el = document.createElement("div");
@@ -221,8 +239,10 @@
                     edge.setAttribute("aria-valuenow", String(block[key]));
                 }
             });
-            add.disabled = segments.every(Boolean);
-            add.title = add.disabled ? msg("wmc_maxSegments") : msg("wmc_addSegment");
+            add.disabled = blocked() || segments.every(Boolean);
+            add.title = blocked() ? msg(capability.reason)
+                : add.disabled ? msg("wmc_maxSegments") : msg("wmc_addSegment");
+            if (blocked()) showHint(msg(capability.reason));
             renderBadge();
         };
 
@@ -318,13 +338,18 @@
         });
 
         for (const type of ["play", "pause", "timeupdate", "seeked", "durationchange", "loadedmetadata"]) {
-            video.addEventListener(type, render, { signal });
+            video.addEventListener(type, () => {
+                // HLS 的 blob: 源与时长在挂载后才稳定，首个元数据事件补一次判定。
+                if (!capability && (type === "loadedmetadata" || type === "durationchange")) resolveMedia();
+                render();
+            }, { signal });
         }
         window.addEventListener("resize", place, { signal });
 
         document.documentElement.appendChild(host);
         place();
         render();
+        resolveMedia();
         return { video, renderBadge, remove: () => { events.abort(); host.remove(); } };
     }
 })();

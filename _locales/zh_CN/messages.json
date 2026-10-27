@@ -1135,5 +1135,17 @@
   },
   "fileName": {
     "message": "文件名"
+  },
+  "wmc_reasonNoRange": {
+    "message": "服务器不支持分段读取"
+  },
+  "wmc_reasonUnknownSource": {
+    "message": "无法确定媒体源"
+  },
+  "wmc_reasonLive": {
+    "message": "直播流不支持选段"
+  },
+  "wmc_reasonUnsupported": {
+    "message": "此媒体不支持选段"
   }
 }
