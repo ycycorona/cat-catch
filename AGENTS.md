@@ -56,9 +56,13 @@
 2. **允许接线的上游文件只有四处**：`manifest*.json`、`js/init.js`（`G.scriptList`）、
    `popup.html`（按钮）、`_locales/*/messages.json`。接线只**新增**条目，不改既有条目；
    `_locales` 只加 `wmc_` 前缀的键（JSON 不能注释，前缀即标记）。**唯一例外是品牌隔离**：可以
-   修改 `_locales/*` 的 `catCatch`（名称）与 `description` 条目、`manifest*.json` 的
-   `homepage_url`，并原地替换 `img/icon.png`、`img/icon128.png`、
+   修改 `_locales/*` 的 `catCatch`（名称）与 `description` 条目、含上游产品名的
+   `titleOption`/`titleDownload`/`titleM3U8`/`titleJson`/`titledash`/`alwaysDisableCatCatcher`
+   条目、`manifest*.json` 的 `homepage_url`，并原地替换 `img/icon.png`、`img/icon128.png`、
    `img/icon-disable.png`（`background.js` 按这些路径设置图标，只能原地换）；改名时同样适用。
+   安装欢迎页与设置页的品牌文案同样属品牌隔离例外：`install.html`、`js/install.js`、
+   `options.html` **只允许**改上游产品名、指向上游文档/仓库的链接、以及含 `cat-catch` 的
+   MQTT 默认占位值，其它内容一律不动。
    其余每处改动加 `// [WMC]` 注释（JSON 与图片无法注释的，靠 `NOTICE.md` §4 登记），实质修改
    都登记到 `NOTICE.md` §4。
 3. **新功能代码一律进 `wmc/`**。新增目录后必须同步 `justfile` 的 `prepare`（`cp -r` 两行），

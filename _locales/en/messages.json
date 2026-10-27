@@ -255,19 +255,19 @@
     "message": "Option"
   },
   "titleOption": {
-    "message": "cat-catch Options"
+    "message": "Web Media Clipper Options"
   },
   "titleDownload": {
-    "message": "cat-catch Download"
+    "message": "Web Media Clipper Download"
   },
   "titleM3U8": {
-    "message": "cat-catch M3U8 Parser"
+    "message": "Web Media Clipper M3U8 Parser"
   },
   "titleJson": {
-    "message": "cat-catch JSON Formatter"
+    "message": "Web Media Clipper JSON Formatter"
   },
   "titledash": {
-    "message": "cat-catch DASH Parser"
+    "message": "Web Media Clipper DASH Parser"
   },
   "suffix": {
     "message": "Suffix"
@@ -405,7 +405,7 @@
     "message": "Defaults to the current browser's User-Agent."
   },
   "alwaysDisableCatCatcher": {
-    "message": "Never Enable Cat-Catch Downloader"
+    "message": "Never Enable the Built-in Downloader"
   },
   "autoClosePageAfterDownload": {
     "message": "Automatically Close Page After Download"
