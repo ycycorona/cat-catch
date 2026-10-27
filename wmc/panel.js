@@ -13,6 +13,7 @@
     const UNFINISHED = ["queued", "running"];
 
     const t = (key) => chrome.i18n.getMessage(key) || key;
+    document.getElementById("wmc_title").textContent = t("wmc_panelTitle");
     const list = document.getElementById("wmc_clips");
     const fmt = (sec) => {
         const s = Math.max(0, Math.floor(sec || 0));
@@ -166,6 +167,7 @@
             if (!changes.wmcJobs) return;
             jobs = changes.wmcJobs.newValue || [];
             render();
+            if (jobs.some((job) => job.status === "queued")) pump();
         });
         jobs = await readJobs();
         render();
