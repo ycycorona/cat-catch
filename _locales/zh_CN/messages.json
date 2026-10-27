@@ -1,4 +1,31 @@
 {
+  "wmc_deleteSegment": {
+    "message": "删除选段"
+  },
+  "wmc_segmentStart": {
+    "message": "选段起点"
+  },
+  "wmc_segmentEnd": {
+    "message": "选段终点"
+  },
+  "wmc_maxSegments": {
+    "message": "最多 2 段"
+  },
+  "wmc_closeOverlay": {
+    "message": "关闭控制器"
+  },
+  "wmc_activeDownloads": {
+    "message": "进行中的下载任务：$1"
+  },
+  "wmc_submitFailed": {
+    "message": "无法提交下载，请重试"
+  },
+  "wmc_wholeStarted": {
+    "message": "已在后台新标签页开始下载整个视频"
+  },
+  "wmc_wholeHandoff": {
+    "message": "整个视频 · 在后台标签页下载"
+  },
   "catCatch": {
     "message": "Web Media Clipper"
   },
