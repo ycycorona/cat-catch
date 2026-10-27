@@ -202,6 +202,129 @@
         return decryptAes128(bytes, key, seg.key.iv ? hexBytes(seg.key.iv) : seqIv(seg.seq));
     }
 
+    function rebaseFmp4(init, fragments) {
+        function invalid() { throw CutError("fMP4 时间戳或 box 结构无效"); }
+        function view(bytes) { return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength); }
+        function boxes(data, start, end) {
+            var out = [];
+            while (start < end) {
+                if (end - start < 8) invalid();
+                var size = data.getUint32(start);
+                var header = 8;
+                if (size === 1) {
+                    if (end - start < 16) invalid();
+                    var large = data.getBigUint64(start + 8);
+                    if (large > BigInt(end - start)) invalid();
+                    size = Number(large);
+                    header = 16;
+                } else if (size === 0) size = end - start;
+                if (size < header || size > end - start) invalid();
+                out.push({
+                    type: String.fromCharCode(data.getUint8(start + 4), data.getUint8(start + 5), data.getUint8(start + 6), data.getUint8(start + 7)),
+                    start: start + header, end: start + size,
+                });
+                start += size;
+            }
+            return out;
+        }
+        function children(data, parent, type) {
+            return boxes(data, parent.start, parent.end).filter(function (box) { return box.type === type; });
+        }
+        // tkhd.track_ID 与 mdhd.timescale 在各自 v0/v1 FullBox 中的位置相同。
+        function timeField(data, box) {
+            if (!box || box.end - box.start < 4) invalid();
+            var version = data.getUint8(box.start);
+            if (version !== 0 && version !== 1) invalid();
+            var offset = box.start + (version === 1 ? 20 : 12);
+            if (offset + 4 > box.end) invalid();
+            return data.getUint32(offset);
+        }
+        function timestamp(data, box, relativeOffset, scale) {
+            if (box.end - box.start < 4 || !scale) invalid();
+            var version = data.getUint8(box.start);
+            if (version !== 0 && version !== 1) invalid();
+            var offset = box.start + relativeOffset;
+            if (offset + (version === 1 ? 8 : 4) > box.end) invalid();
+            return {
+                data: data, offset: offset, version: version, scale: scale,
+                time: version === 1 ? data.getBigUint64(offset) : BigInt(data.getUint32(offset)),
+            };
+        }
+        var scales = new Map();
+        var edits = [];
+        var gap = null;
+        var data = view(init);
+        children(data, { start: 0, end: data.byteLength }, "moov").forEach(function (moov) {
+            children(data, moov, "trak").forEach(function (trak) {
+                var id = timeField(data, children(data, trak, "tkhd")[0]);
+                var mdia = children(data, trak, "mdia")[0];
+                if (!mdia) invalid();
+                var scale = timeField(data, children(data, mdia, "mdhd")[0]);
+                if (!scale) invalid();
+                scales.set(id, BigInt(scale));
+                var edts = children(data, trak, "edts")[0];
+                var elst = edts && children(data, edts, "elst")[0];
+                var empty = null;
+                if (elst) {
+                    if (elst.end - elst.start < 8) invalid();
+                    var version = data.getUint8(elst.start);
+                    if (version !== 0 && version !== 1) invalid();
+                    var width = version === 1 ? 8 : 4;
+                    var count = data.getUint32(elst.start + 4);
+                    if (8 + count * (width * 2 + 4) > elst.end - elst.start) invalid();
+                    if (count) {
+                        var offset = elst.start + 8 + width;
+                        var mediaTime = version === 1 ? data.getBigInt64(offset) : BigInt(data.getInt32(offset));
+                        if (mediaTime === -1n) {
+                            empty = timestamp(data, elst, 8, 1n);
+                            edits.push(empty);
+                        }
+                    }
+                }
+                var delay = empty ? empty.time : 0n;
+                if (gap === null || delay < gap) gap = delay;
+            });
+        });
+        var stamps = [];
+        var indexes = [];
+        var origin = null;
+        fragments.forEach(function (bytes) {
+            var data = view(bytes);
+            var before = stamps.length;
+            children(data, { start: 0, end: data.byteLength }, "sidx").forEach(function (sidx) {
+                if (sidx.end - sidx.start < 12) invalid();
+                indexes.push(timestamp(data, sidx, 12, BigInt(data.getUint32(sidx.start + 8))));
+            });
+            children(data, { start: 0, end: data.byteLength }, "moof").forEach(function (moof) {
+                children(data, moof, "traf").forEach(function (traf) {
+                    var tfhd = children(data, traf, "tfhd")[0];
+                    if (!tfhd || tfhd.end - tfhd.start < 8) invalid();
+                    var scale = scales.get(data.getUint32(tfhd.start + 4));
+                    var tfdts = children(data, traf, "tfdt");
+                    if (!scale || tfdts.length !== 1) invalid();
+                    var tfdt = tfdts[0];
+                    var stamp = timestamp(data, tfdt, 4, scale);
+                    stamps.push(stamp);
+                    if (!origin || stamp.time * origin.scale < origin.time * scale) origin = stamp;
+                });
+            });
+            if (stamps.length === before) invalid();
+        });
+        stamps.concat(indexes).forEach(function (stamp) {
+            // 共用以秒计的原点，保留音视频偏移；换算误差小于该轨一个 tick。
+            var time = stamp.time - origin.time * stamp.scale / origin.scale;
+            if (time < 0n) invalid();
+            if (stamp.version === 1) stamp.data.setBigUint64(stamp.offset, time);
+            else stamp.data.setUint32(stamp.offset, Number(time));
+        });
+        // 空编辑用同一 movie timescale；仅减去共同延迟，保持两轨呈现时间差与 box 大小。
+        if (gap > 0n) edits.forEach(function (edit) {
+            var time = edit.time - gap;
+            if (edit.version === 1) edit.data.setBigUint64(edit.offset, time);
+            else edit.data.setUint32(edit.offset, Number(time));
+        });
+    }
+
     // WmcHlsCut.cut({ playlistUrl, start, end, signal, onProgress })
     async function cut(opts) {
         var signal = opts && opts.signal;
@@ -251,6 +374,7 @@
         var workers = [];
         for (var w = 0; w < Math.min(CONCURRENCY, picked.length); w++) workers.push(worker());
         await Promise.all(workers);
+        if (info.media.map) rebaseFmp4(parts[0], out);
         for (var j = 0; j < out.length; j++) parts.push(out[j]);
 
         return {
