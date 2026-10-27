@@ -8,6 +8,21 @@
   "wmc_panelTitle": {
     "message": "媒体片段"
   },
+  "wmc_play": {
+    "message": "播放"
+  },
+  "wmc_pause": {
+    "message": "暂停"
+  },
+  "wmc_addSegment": {
+    "message": "添加选段"
+  },
+  "wmc_download": {
+    "message": "下载"
+  },
+  "wmc_needEnd": {
+    "message": "请先标记终点再下载"
+  },
   "confirm": {
     "message": "确认"
   },
