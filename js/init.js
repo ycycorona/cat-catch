@@ -453,3 +453,4 @@ function wildcardToRegex(urlPattern) {
     // 创建正则表达式，确保匹配整个URL
     return new RegExp(`^${regexPattern}$`, 'i'); // 忽略大小写
 }
+typeof importScripts == "function" && importScripts("/wmc/sw.js"); // [WMC]
