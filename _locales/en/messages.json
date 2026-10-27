@@ -8,6 +8,21 @@
   "wmc_panelTitle": {
     "message": "Media Clips"
   },
+  "wmc_play": {
+    "message": "Play"
+  },
+  "wmc_pause": {
+    "message": "Pause"
+  },
+  "wmc_addSegment": {
+    "message": "Add clip"
+  },
+  "wmc_download": {
+    "message": "Download"
+  },
+  "wmc_needEnd": {
+    "message": "Mark the end before downloading"
+  },
   "confirm": {
     "message": "Confirm"
   },
