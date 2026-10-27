@@ -1,6 +1,16 @@
-// [WMC] SPEC-001 T6：媒体源判定（仅 MP4 分支）与提交入口。
+// [WMC] SPEC-001 T6/T3：媒体源判定（MP4 Range、HLS 点播、不可选原因）与提交入口。
 // 与上游 js/background.js 同一个 SW 全局域：cacheData 由 js/init.js 提供，本文件只读它。
 // 消息格式沿用上游：{ Message: "wmcXxx", ... }。
+importScripts("/wmc/hlscut.js"); // [WMC] 只读播放列表，用于 HLS 能力判定
+
+// 不可选段原因（i18n 键，文案在 _locales 里，面板/浮层自己翻译）。
+const WMC_REASON = {
+    noRange: "wmc_reasonNoRange",
+    unknownSource: "wmc_reasonUnknownSource",
+    live: "wmc_reasonLive",
+    unsupported: "wmc_reasonUnsupported",
+};
+const WMC_HLS_TOLERANCE = 2; // 秒：播放列表时长与 video.duration 的允许差（SPEC AC-12）
 
 // 同一 URL 的嗅探记录：请求头与 initiator 只从这里取。
 function wmcCachedMedia(tabId, url) {
@@ -8,17 +18,71 @@ function wmcCachedMedia(tabId, url) {
     return list.find((item) => item.url === url) || null;
 }
 
-// MP4 分支：http(s) + Range 探测 206 即可选段。DRM / srcObject 由内容脚本判定后作为入参传入。
-async function wmcResolveMedia(tabId, url) {
-    if (typeof url !== "string" || !/^https?:\/\//i.test(url)) return { selectable: false };
+function wmcM3u8Candidates(tabId) {
+    const list = (self.cacheData && self.cacheData[tabId]) || [];
+    return list
+        .filter((item) => /mpegurl|m3u8/i.test(`${item.ext || ""} ${item.type || ""} ${item.url || ""}`))
+        .slice(-10);
+}
+
+// HLS 分支（MSE 页面）：嗅探记录里找与 video.duration 相差 ≤ 2 秒的唯一播放列表。
+async function wmcResolveHls(tabId, duration) {
+    const matches = [];
+    for (const item of wmcM3u8Candidates(tabId)) {
+        let info;
+        try {
+            info = await WmcHlsCut.inspect(item.url);
+        } catch (e) {
+            continue;
+        }
+        if (!info.media.segments.length) continue;
+        if (!Number.isFinite(duration) || Math.abs(info.duration - duration) > WMC_HLS_TOLERANCE) continue;
+        matches.push({ item, info });
+    }
+    // 同一个源会同时嗅到 master 与变体：按解析出的媒体播放列表去重，
+    // 但不可选条件（ENDLIST / SAMPLE-AES / 独立音轨）要合并，不能只留最后一个。
+    const unique = new Map();
+    for (const match of matches) {
+        const current = unique.get(match.info.playlistUrl);
+        if (!current) {
+            unique.set(match.info.playlistUrl, { item: match.item, info: { ...match.info } });
+            continue;
+        }
+        current.info.endlist = current.info.endlist && match.info.endlist;
+        current.info.sampleAes = current.info.sampleAes || match.info.sampleAes;
+        current.info.audioUri = current.info.audioUri || match.info.audioUri;
+        if (match.info.masterUrl !== match.info.playlistUrl) {
+            current.info.masterUrl = match.info.masterUrl;
+            current.item = match.item;
+        }
+    }
+    if (unique.size !== 1) return { selectable: false, reason: WMC_REASON.unknownSource };
+    const { item, info } = unique.values().next().value;
+    const media = {
+        kind: "hls",
+        hlsUrl: info.masterUrl, // 整段下载交给上游 m3u8 解析页
+        requestHeaders: item.requestHeaders || null,
+        initiator: item.initiator || null,
+    };
+    if (!info.endlist) return { ...media, selectable: false, reason: WMC_REASON.live };
+    if (info.sampleAes || info.audioUri) return { ...media, selectable: false, reason: WMC_REASON.unsupported };
+    return { ...media, selectable: true };
+}
+
+// http(s) 走 Range 探测，blob: 走 HLS 判定。DRM / srcObject 由内容脚本判定后作为入参传入。
+async function wmcResolveMedia(tabId, url, duration, flags) {
+    if (flags && (flags.drm || flags.mediaStream)) return { selectable: false, reason: WMC_REASON.unsupported };
+    if (typeof url !== "string" || !url) return { selectable: false, reason: WMC_REASON.unknownSource };
+    if (/^blob:/i.test(url)) return wmcResolveHls(tabId, duration);
+    if (!/^https?:\/\//i.test(url)) return { selectable: false, reason: WMC_REASON.unknownSource };
     let status = 0;
     try {
         const res = await fetch(url, { headers: { Range: "bytes=0-1" }, credentials: "include" });
         status = res.status;
     } catch (e) {
-        return { selectable: false };
+        return { selectable: false, reason: WMC_REASON.noRange };
     }
-    if (status !== 206) return { selectable: false };
+    if (status !== 206) return { selectable: false, reason: WMC_REASON.noRange };
     const item = wmcCachedMedia(tabId, url);
     return {
         selectable: true,
@@ -57,19 +121,36 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
 });
 
 // AC-11：交接提示与下载任务分开保存，不伪造下载进度或“已完成”。
+// MP4 交给上游下载页；HLS（blob: 源）交给上游 m3u8 解析页，仍开在右邻后台标签并自动关闭。
 async function wmcHandoff(message, tab) {
-    if (typeof message.url !== "string" || !/^https?:\/\//i.test(message.url)) return { ok: false, error: "no-source" };
-    const item = wmcCachedMedia(tab.id, message.url);
-    const url = new URL(chrome.runtime.getURL("downloader.html"));
-    url.searchParams.set("autoClose", "1");
-    if (item?.requestId) url.searchParams.set("requestId", item.requestId);
-    else url.searchParams.set("JSON", JSON.stringify({
-        url: message.url,
-        requestId: crypto.randomUUID(),
-        title: String(message.pageTitle || tab.title || ""),
-        requestHeaders: item?.requestHeaders || {},
-        initiator: item?.initiator || message.pageUrl || tab.url,
-    }));
+    const media = await wmcResolveMedia(tab.id, message.url, message.duration, {});
+    let url;
+    if (/^https?:\/\//i.test(message.url)) {
+        const item = wmcCachedMedia(tab.id, message.url);
+        url = new URL(chrome.runtime.getURL("downloader.html"));
+        url.searchParams.set("autoClose", "1");
+        if (item?.requestId) url.searchParams.set("requestId", item.requestId);
+        else url.searchParams.set("JSON", JSON.stringify({
+            url: message.url,
+            requestId: crypto.randomUUID(),
+            title: String(message.pageTitle || tab.title || ""),
+            requestHeaders: item?.requestHeaders || {},
+            initiator: item?.initiator || message.pageUrl || tab.url,
+        }));
+    } else {
+        const hlsUrl = media.hlsUrl;
+        if (!hlsUrl) return { ok: false, error: "no-source" };
+        const item = wmcCachedMedia(tab.id, hlsUrl);
+        url = new URL(chrome.runtime.getURL("m3u8.html"));
+        url.searchParams.set("url", hlsUrl);
+        url.searchParams.set("tabid", String(tab.id));
+        url.searchParams.set("autoDown", "1");
+        url.searchParams.set("autoClose", "1");
+        url.searchParams.set("title", String(message.pageTitle || tab.title || ""));
+        if (item?.requestHeaders) url.searchParams.set("requestHeaders", JSON.stringify(item.requestHeaders));
+        const initiator = item?.initiator || message.pageUrl || tab.url;
+        if (initiator) url.searchParams.set("initiator", initiator);
+    }
     await chrome.tabs.create({ url: url.href, windowId: tab.windowId, index: tab.index + 1, active: false });
     await navigator.locks.request("wmcHandoffs", async () => {
         const { wmcHandoffs = [] } = await chrome.storage.session.get("wmcHandoffs");
@@ -78,7 +159,7 @@ async function wmcHandoff(message, tab) {
             createdAt: Date.now(),
             pageUrl: String(message.pageUrl || tab.url || ""),
             pageTitle: String(message.pageTitle || tab.title || ""),
-            kind: "mp4",
+            kind: media.kind || "mp4",
             openedUrl: url.href,
         });
         await chrome.storage.session.set({ wmcHandoffs });
@@ -98,7 +179,7 @@ async function wmcSubmit(message, sender) {
             !Number.isFinite(seg.start) || !Number.isFinite(seg.end) ||
             seg.start < 0 || seg.end <= seg.start || seg.end > message.duration) ||
         new Set(segments.map((seg) => seg.segIndex)).size !== segments.length) return { ok: false, error: "bad-range" };
-    const media = await wmcResolveMedia(tab.id, message.url);
+    const media = await wmcResolveMedia(tab.id, message.url, message.duration, {});
     if (!media.selectable) return { ok: false, error: "not-selectable" };
     // 提交时整体快照（字段见 SPEC「Interfaces and data」），之后改选段不影响这条记录。
     const submitted = segments.map((seg) => ({
@@ -109,6 +190,7 @@ async function wmcSubmit(message, sender) {
         tabId: tab.id,
         mediaUrl: message.url,
         kind: media.kind,
+        sourceUrl: media.hlsUrl || message.url, // HLS 的 blob: 源用它存播放列表地址
         requestHeaders: media.requestHeaders,
         initiator: media.initiator,
         segIndex: seg.segIndex,
@@ -152,11 +234,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.Message === "wmcResolve") {
         settle((async () => {
             const tabId = sender.tab && sender.tab.id;
-            if (message.drm || message.mediaStream) return { selectable: false, kind: null };
-            const media = await wmcResolveMedia(tabId, message.currentSrc || message.url);
+            if (message.drm || message.mediaStream) return { selectable: false, kind: null, reason: WMC_REASON.unsupported };
+            const media = await wmcResolveMedia(tabId, message.currentSrc || message.url, message.duration, {});
             return {
                 selectable: media.selectable,
                 kind: media.kind || null,
+                reason: media.reason || null,
                 requestHeaders: media.requestHeaders || null,
                 initiator: media.initiator || null,
             };

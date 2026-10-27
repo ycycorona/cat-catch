@@ -47,7 +47,7 @@
             .replace(/\s+/g, " ")
             .trim()
             .slice(0, 80) || "clip";
-        return `${base}_${fmt(out.actualStart)}-${fmt(out.actualEnd)}.mp4`;
+        return `${base}_${fmt(out.actualStart)}-${fmt(out.actualEnd)}.${out.ext || "mp4"}`;
     }
 
     async function run(job) {
@@ -57,13 +57,23 @@
         try {
             // setRequestHeaders 作用于调用方自己的标签页，所以必须在面板页设置、再在面板页 fetch。
             await new Promise((resolve) => setRequestHeaders(job.requestHeaders || {}, resolve));
-            const out = await WmcMp4Cut.cut({
-                url: job.mediaUrl,
-                start: job.start,
-                end: job.end,
-                signal: ac.signal,
-                onProgress: (p) => { patchProgress(job.id, p); },
-            });
+            const onProgress = (p) => { patchProgress(job.id, p); };
+            // HLS 走独立模块（blob: 源用提交时记下的播放列表地址），MP4 路径不变。
+            const out = job.kind === "hls"
+                ? await WmcHlsCut.cut({
+                    playlistUrl: job.sourceUrl || job.mediaUrl,
+                    start: job.start,
+                    end: job.end,
+                    signal: ac.signal,
+                    onProgress,
+                })
+                : await WmcMp4Cut.cut({
+                    url: job.mediaUrl,
+                    start: job.start,
+                    end: job.end,
+                    signal: ac.signal,
+                    onProgress,
+                });
             const blobUrl = URL.createObjectURL(out.blob);
             const fileName = fileNameFor(job, out);
             await chrome.downloads.download({ url: blobUrl, filename: fileName, saveAs: false });

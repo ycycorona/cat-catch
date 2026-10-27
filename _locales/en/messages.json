@@ -1135,5 +1135,17 @@
   },
   "fileName": {
     "message": "File Name"
+  },
+  "wmc_reasonNoRange": {
+    "message": "The server does not support ranged requests"
+  },
+  "wmc_reasonUnknownSource": {
+    "message": "Cannot determine the media source"
+  },
+  "wmc_reasonLive": {
+    "message": "Live streams cannot be clipped"
+  },
+  "wmc_reasonUnsupported": {
+    "message": "This media cannot be clipped"
   }
 }
