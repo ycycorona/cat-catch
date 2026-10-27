@@ -1,9 +1,9 @@
 {
   "catCatch": {
-    "message": "cat-catch"
+    "message": "Web Media Clipper"
   },
   "description": {
-    "message": "Outil de détection de médias web"
+    "message": "Détecte les médias des pages web, choisit des plages de temps et les télécharge"
   },
   "confirm": {
     "message": "Confirmer"

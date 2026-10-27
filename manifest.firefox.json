@@ -20,7 +20,7 @@
   },
   "manifest_version": 3,
   "name": "__MSG_catCatch__",
-  "homepage_url": "https://github.com/xifangczy/cat-catch",
+  "homepage_url": "https://github.com/ycycorona/cat-catch",
   "options_ui": {
     "page": "options.html",
     "open_in_tab": true

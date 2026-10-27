@@ -1,9 +1,9 @@
 {
   "catCatch": {
-    "message": "cat-catch"
+    "message": "Web Media Clipper"
   },
   "description": {
-    "message": "Web medya sniffer aracı"
+    "message": "Web sayfalarındaki medyayı algılar, zaman aralıklarını seçip indirir"
   },
   "confirm": {
     "message": "Onayla"

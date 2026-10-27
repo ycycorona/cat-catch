@@ -1,9 +1,9 @@
 {
   "catCatch": {
-    "message": "cat-catch"
+    "message": "Web Media Clipper"
   },
   "description": {
-    "message": "웹 미디어 스니핑 도구"
+    "message": "웹 페이지의 미디어를 감지하고 구간을 선택해 다운로드"
   },
   "confirm": {
     "message": "확인"

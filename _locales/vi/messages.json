@@ -1,9 +1,9 @@
 {
   "catCatch": {
-    "message": "cat-catch"
+    "message": "Web Media Clipper"
   },
   "description": {
-    "message": "Công cụ bắt link media trên web"
+    "message": "Phát hiện media trên trang web, chọn đoạn thời gian và tải xuống"
   },
   "confirm": {
     "message": "Xác nhận"

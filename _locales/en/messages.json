@@ -1,9 +1,9 @@
 {
   "catCatch": {
-    "message": "cat-catch"
+    "message": "Web Media Clipper"
   },
   "description": {
-    "message": "Web media sniffing tool"
+    "message": "Detect media on web pages, pick time ranges and download them"
   },
   "confirm": {
     "message": "Confirm"

@@ -1,9 +1,9 @@
 {
   "catCatch": {
-    "message": "cat-catch"
+    "message": "Web Media Clipper"
   },
   "description": {
-    "message": "ウェブメディア探す TOOL"
+    "message": "ウェブページのメディアを検出し、時間範囲を選んでダウンロード"
   },
   "confirm": {
     "message": "確認"

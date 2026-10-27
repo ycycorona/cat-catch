@@ -1,9 +1,9 @@
 {
   "catCatch": {
-    "message": "猫抓"
+    "message": "Web Media Clipper"
   },
   "description": {
-    "message": "网页媒体嗅探工具"
+    "message": "识别网页中的媒体，选取时间段并下载"
   },
   "confirm": {
     "message": "确认"

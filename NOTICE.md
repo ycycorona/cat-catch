@@ -43,19 +43,21 @@ GPL §5a 要求标注修改。约定：**每个版本在此登记对上游文件
 
 | 日期 | 版本 | 修改摘要 |
 |---|---|---|
-| — | 0.1.0 | （待填）首次派生：品牌替换；新增选段与任务模块 |
+| 2026-10-27 | 未发版 | 品牌隔离：`_locales/*` 的 `catCatch` → Web Media Clipper、`description` 改中立描述；`manifest*.json` `homepage_url` 改本分支仓库；`img/icon.png`、`img/icon128.png`、`img/icon-disable.png` 原地换中性占位图标 |
+| — | 0.1.0 | （待填）新增选段与任务模块 |
 
 ## 5. 品牌隔离清单（fork 后必须替换）
 
 | 位置 | 现状 |
 |---|---|
 | `manifest.json` / `manifest.firefox.json` `name` | `__MSG_catCatch__` → 改 `_locales/*/messages.json` 的 `catCatch` 键 |
-| 同上 `homepage_url`、`action.default_title` | 上游 GitHub / `__MSG_catCatch__` |
-| `_locales/*/messages.json` | `catCatch`、`description` 共 10 种语言 |
-| `popup.html:6` | `<title>catCatch</title>` |
+| 同上 `homepage_url`、`action.default_title` | ✅ 2026-10-27（`default_title` 随 `catCatch` 键生效） |
+| `_locales/*/messages.json` | `catCatch`、`description` 共 11 种语言 —— ✅ 2026-10-27 |
+| `popup.html:6` | ✅ 无需改：`<title>catCatch</title>` 是 i18n 键（`js/i18n.js:14`），随 `catCatch` 键显示新名 |
 | `options.html:203-976` | 多处 `cat-catch.94cat.com` 文档链接、上游 GitHub 链接 |
 | `options.html:890,914` | MQTT 默认 clientId / topic 含 `cat-catch` |
-| `img/icon.png`、`img/icon128.png`、`img/*.png` | 上游图标 |
+| `img/icon.png`、`img/icon128.png`、`img/icon-disable.png` | ✅ 2026-10-27 中性占位（正式图标待定） |
+| `img/cat-down*.png` 等按钮图标 | 上游图标，待评估 |
 | `js/init.js` | 在线服务地址（`ffmpeg.94cat.com`、StreamSaver mitm 等）——自建或改为可配置 |
 | `README*.md`、`CHANGELOG.md`、`justfile` | 上游项目名与描述 |
 
