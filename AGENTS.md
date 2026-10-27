@@ -44,6 +44,9 @@
 私有规则是 `y-agent-toolkit/agent-playbook` 的**适配版**，不是逐字拷贝：同步由 agent 读两边、
 产出适配版并写 `~/wmc-dev/docs/agents/SYNC.md`（保留 / 改写 / 删除 / 例外 + 不变式自检，
 含已同步的 playbook 版本）。本仓库专有的规则只写在本文件，不写进适配版。
+报告规则问题、修改规则或同步时，按 `y-agent-toolkit` 的 `agent-playbook/USAGE.md` 做。做规则相关
+任务前，先把 `SYNC.md` 里的 `Playbook revision` 与 playbook 的 `VERSION` 对比；副本落后时报告
+副本过期，不要越过副本直接按 playbook 做。
 
 ## 铁律
 
