@@ -51,12 +51,16 @@
 ## 铁律
 
 1. **不改上游核心文件**：`js/m3u8.js`、`js/downloader.js`、`js/m3u8.downloader.js`、
-   `js/popup.js`、`js/background.js`、`catch-script/*`、`lib/*`、`img/*`。需要扩展行为就
-   在 `wmc/` 里包装。
+   `js/popup.js`、`js/background.js`、`catch-script/*`、`lib/*`、`img/*`（品牌隔离替换的三个图标
+   文件除外，见铁律 2）。需要扩展行为就在 `wmc/` 里包装。
 2. **允许接线的上游文件只有四处**：`manifest*.json`、`js/init.js`（`G.scriptList`）、
    `popup.html`（按钮）、`_locales/*/messages.json`。接线只**新增**条目，不改既有条目；
-   `_locales` 只加 `wmc_` 前缀的键（JSON 不能注释，前缀即标记），品牌隔离对既有名称条目的
-   一次性修改是唯一例外。其余每处改动加 `// [WMC]` 注释，实质修改都登记到 `NOTICE.md` §4。
+   `_locales` 只加 `wmc_` 前缀的键（JSON 不能注释，前缀即标记）。**唯一例外是品牌隔离**：可以
+   修改 `_locales/*` 的 `catCatch`（名称）与 `description` 条目、`manifest*.json` 的
+   `homepage_url`，并原地替换 `img/icon.png`、`img/icon128.png`、
+   `img/icon-disable.png`（`background.js` 按这些路径设置图标，只能原地换）；改名时同样适用。
+   其余每处改动加 `// [WMC]` 注释（JSON 与图片无法注释的，靠 `NOTICE.md` §4 登记），实质修改
+   都登记到 `NOTICE.md` §4。
 3. **新功能代码一律进 `wmc/`**。新增目录后必须同步 `justfile` 的 `prepare`（`cp -r` 两行），
    否则打包缺文件——这是本项目唯一会静默损坏发布产物的坑。
 4. **i18n**：扩展页用 `chrome.i18n` + `_locales/*/messages.json`。不要用 `catch-script/*`
