@@ -21,6 +21,7 @@
     };
 
     let jobs = [];
+    let handoffs = []; // 整段交接仅有提示，不是下载任务。
     let running = null; // 当前任务的 AbortController
     let pumping = false;
 
@@ -29,10 +30,10 @@
         return Array.isArray(got.wmcJobs) ? got.wmcJobs : [];
     };
     const writeJobs = (next) => chrome.storage.session.set({ wmcJobs: next });
-    const patch = async (id, fields) => {
+    const patch = (id, fields) => navigator.locks.request("wmcJobs", async () => {
         const next = (await readJobs()).map((job) => (job.id === id ? { ...job, ...fields } : job));
         await writeJobs(next);
-    };
+    });
     // 进度按整百分点落盘，避免每个 Range 批次都写一次 storage。
     const patchProgress = async (id, progress) => {
         const job = (await readJobs()).find((item) => item.id === id);
@@ -130,6 +131,13 @@
         title.textContent = job.pageTitle || job.pageUrl;
         const range = document.createElement("div");
         range.className = "meta";
+        if (job.openedUrl) {
+            color.style.background = "#9ca3af";
+            range.textContent = t("wmc_wholeHandoff");
+            main.append(title, range);
+            li.append(color, main);
+            return li;
+        }
         range.textContent =
             `${t("wmc_userRange")} ${fmt(job.start)}–${fmt(job.end)}` +
             (job.actualStart === null || job.actualStart === undefined
@@ -152,7 +160,7 @@
 
     function render() {
         list.textContent = "";
-        for (const job of [...jobs].sort((a, b) => b.createdAt - a.createdAt)) list.appendChild(row(job));
+        for (const job of [...jobs, ...handoffs].sort((a, b) => b.createdAt - a.createdAt)) list.appendChild(row(job));
     }
 
     // 有未完成任务时关闭面板要确认；关闭后由 sw.js 的 tabs.onRemoved 把它们标为已中断。
@@ -164,12 +172,14 @@
 
     (async () => {
         chrome.storage.session.onChanged.addListener((changes) => {
-            if (!changes.wmcJobs) return;
-            jobs = changes.wmcJobs.newValue || [];
+            if (!changes.wmcJobs && !changes.wmcHandoffs) return;
+            if (changes.wmcJobs) jobs = changes.wmcJobs.newValue || [];
+            if (changes.wmcHandoffs) handoffs = changes.wmcHandoffs.newValue || [];
             render();
             if (jobs.some((job) => job.status === "queued")) pump();
         });
         jobs = await readJobs();
+        handoffs = (await chrome.storage.session.get("wmcHandoffs")).wmcHandoffs || [];
         render();
         pump();
     })();

@@ -1,4 +1,31 @@
 {
+  "wmc_deleteSegment": {
+    "message": "Delete segment"
+  },
+  "wmc_segmentStart": {
+    "message": "Segment start"
+  },
+  "wmc_segmentEnd": {
+    "message": "Segment end"
+  },
+  "wmc_maxSegments": {
+    "message": "Maximum 2 segments"
+  },
+  "wmc_closeOverlay": {
+    "message": "Close controller"
+  },
+  "wmc_activeDownloads": {
+    "message": "Active downloads: $1"
+  },
+  "wmc_submitFailed": {
+    "message": "Could not submit download. Please try again."
+  },
+  "wmc_wholeStarted": {
+    "message": "Started downloading the entire video in a new background tab"
+  },
+  "wmc_wholeHandoff": {
+    "message": "Entire video · Downloading in a background tab"
+  },
   "catCatch": {
     "message": "Web Media Clipper"
   },
