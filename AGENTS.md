@@ -50,8 +50,10 @@
 1. **不改上游核心文件**：`js/m3u8.js`、`js/downloader.js`、`js/m3u8.downloader.js`、
    `js/popup.js`、`js/background.js`、`catch-script/*`、`lib/*`、`img/*`。需要扩展行为就
    在 `wmc/` 里包装。
-2. **允许接线的上游文件只有三个**：`manifest*.json`、`js/init.js`（`G.scriptList`）、
-   `popup.html`（按钮）。每处改动加 `// [WMC]` 注释，并把实质修改登记到 `NOTICE.md` §4。
+2. **允许接线的上游文件只有四处**：`manifest*.json`、`js/init.js`（`G.scriptList`）、
+   `popup.html`（按钮）、`_locales/*/messages.json`。接线只**新增**条目，不改既有条目；
+   `_locales` 只加 `wmc_` 前缀的键（JSON 不能注释，前缀即标记），品牌隔离对既有名称条目的
+   一次性修改是唯一例外。其余每处改动加 `// [WMC]` 注释，实质修改都登记到 `NOTICE.md` §4。
 3. **新功能代码一律进 `wmc/`**。新增目录后必须同步 `justfile` 的 `prepare`（`cp -r` 两行），
    否则打包缺文件——这是本项目唯一会静默损坏发布产物的坑。
 4. **i18n**：扩展页用 `chrome.i18n` + `_locales/*/messages.json`。不要用 `catch-script/*`
