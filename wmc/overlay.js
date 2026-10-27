@@ -160,8 +160,22 @@
         });
 
         dl.addEventListener("click", () => {
-            // T6 才接提交；本卡只保证待定态不提交任何下载任务
-            if (start !== null) showHint(msg("wmc_needEnd"));
+            // 待定态不提交任何下载任务
+            if (start !== null) {
+                showHint(msg("wmc_needEnd"));
+                return;
+            }
+            if (!seg) return; // 整段下载（AC-11）不属本卡
+            chrome.runtime.sendMessage({
+                Message: "wmcSubmit",
+                url: video.currentSrc,
+                pageUrl: location.href,
+                pageTitle: document.title,
+                start: seg.start,
+                end: seg.end,
+                segIndex: 0,
+                duration: video.duration,
+            }, () => void chrome.runtime.lastError);
         });
 
         handle.addEventListener("pointerdown", (e) => {

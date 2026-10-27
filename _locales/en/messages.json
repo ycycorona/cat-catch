@@ -23,6 +23,39 @@
   "wmc_needEnd": {
     "message": "Mark the end before downloading"
   },
+  "wmc_statusQueued": {
+    "message": "Queued"
+  },
+  "wmc_statusRunning": {
+    "message": "Downloading"
+  },
+  "wmc_statusDone": {
+    "message": "Done"
+  },
+  "wmc_statusFailed": {
+    "message": "Failed"
+  },
+  "wmc_statusCanceled": {
+    "message": "Canceled"
+  },
+  "wmc_statusInterrupted": {
+    "message": "Interrupted"
+  },
+  "wmc_cancel": {
+    "message": "Cancel"
+  },
+  "wmc_retry": {
+    "message": "Retry"
+  },
+  "wmc_userRange": {
+    "message": "Selected"
+  },
+  "wmc_actualRange": {
+    "message": "Actual"
+  },
+  "wmc_leaveConfirm": {
+    "message": "Downloads are still in progress. Closing this panel will interrupt them."
+  },
   "confirm": {
     "message": "Confirm"
   },
