@@ -1,8 +1,7 @@
 # NOTICE — 二次开发与许可合规
 
 本仓库是 [cat-catch（猫抓）](https://github.com/xifangczy/cat-catch) 的二次开发分支，
-产品代号 **Web Media Clipper**（暂定名，最终名未定；
-最终名确定前不执行第 5 节的品牌替换）。
+产品名暂定为 **Web Media Clipper**（日后可能更改；第 5 节的品牌替换先用这个名字执行）。
 
 ## 1. 上游归属
 
