@@ -129,9 +129,16 @@
         let start = null; // 待定起点
         let pendingSlot = 0;
         let capability = null; // 最近一次 wmcResolve 的结果：{ selectable, kind, reason }
+        let resolveAt = 0; // 上次判定的时间，用来给重试限频
+        let resolveTries = 0;
         const blocked = () => !!(capability && capability.selectable === false);
+        // 「没找到播放列表」是临时结论：cacheData 会随播放继续补齐，允许限频重试；
+        // 直播/加密/无 Range 是定论，不重试。
+        const retryable = () => blocked() && capability.reason === "wmc_reasonUnknownSource" && resolveTries < 12;
         // AC-12：能力判定每次只问 SW 一次，判不出（F6）或直播/加密/DRM 时置灰添加选段。
         const resolveMedia = () => {
+            resolveAt = Date.now();
+            resolveTries += 1;
             chrome.runtime.sendMessage({
                 Message: "wmcResolve",
                 url: video.currentSrc,
@@ -339,8 +346,11 @@
 
         for (const type of ["play", "pause", "timeupdate", "seeked", "durationchange", "loadedmetadata"]) {
             video.addEventListener(type, () => {
-                // HLS 的 blob: 源与时长在挂载后才稳定，首个元数据事件补一次判定。
-                if (!capability && (type === "loadedmetadata" || type === "durationchange")) resolveMedia();
+                // HLS 的 blob: 源与时长在挂载后才稳定，首个元数据事件补一次判定；
+                // 结论若是「没找到播放列表」，播放过程中按 3 秒间隔重试，直到嗅探补齐或次数用尽。
+                const meta = type === "loadedmetadata" || type === "durationchange";
+                const retryNow = retryable() && Date.now() - resolveAt > 3000 && (meta || type === "timeupdate");
+                if ((!capability && meta) || retryNow) resolveMedia();
                 render();
             }, { signal });
         }

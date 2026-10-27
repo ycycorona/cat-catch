@@ -51,6 +51,7 @@ GPL §5a 要求标注修改。约定：**每个版本在此登记对上游文件
 | 2026-10-27 | 未发版 | SPEC-001 T4：`wmc/overlay.js` 支持蓝橙两槽、边界调整与删除、最近播放绑定、任务徽标和页内关闭；`wmc/sw.js` 一次快照提交两段，MP4 整段下载交给右邻后台标签页（自动关闭），独立 `wmcHandoffs` 仅供面板中立提示；`wmc/panel.js` 展示交接提示且不混入下载任务状态；`_locales/{zh_CN,en}` 仅新增 `wmc_` 文案；受限验证探针在私有夹具 `harness-t4/`，不打包 |
 | 2026-10-27 | 未发版 | SPEC-001 T3：新增 `wmc/hlscut.js`（HLS 点播切段，独立模块，不含上游代码）；`wmc/sw.js` 补 HLS 能力判定与四类不可选原因、HLS 整段下载交给上游 m3u8 解析页（后台标签 + 自动关闭）；`wmc/overlay.js` 不可选段时置灰「添加选段」并显示原因；`wmc/panel.js` 按 `kind` 分派切段模块；`_locales/{zh_CN,en}` 仅新增 `wmc_` 前缀的原因文案 |
 | 2026-10-27 | 未发版 | 品牌隔离补漏：`justfile` 的 `build-zip` / `build-crx` 产物名由 `cat-catch${VERSION}.zip` / `.crx` 改为 `web-media-clipper${VERSION}.zip` / `.crx`（发布物文件名此前仍带上游品牌） |
+| 2026-10-27 | 未发版 | 修「无法确定媒体源」判定：`wmc/overlay.js` 对「没找到播放列表」这一临时结论按 3 秒间隔、最多 12 次重试（直播/加密/无 Range 等定论不重试），避免 HLS 播放列表晚嗅探时永久置灰；`wmc/sw.js` 增加 DASH（`.mpd`）候选识别，只有 DASH 时回落为「暂不支持」而非「无法确定」 |
 | 2026-10-27 | 未发版 | 品牌隔离扩展：`install.html`、`js/install.js` 的安装欢迎页文案与上游反馈链接改中性/指向本仓库 issue；`options.html` 的 11 处 `cat-catch.94cat.com` 文档链接、2 处上游 GitHub 链接改为本仓库，MQTT 默认占位值 `cat-catch-client`/`cat-catch/media` 改为 `web-media-clipper-*`；`_locales/{zh_CN,en}` 的 6 个含上游产品名的标题条目改中性。`AGENTS.md` 铁律 2 的品牌例外随之写明这三个文件只许改品牌字符串与上游链接 |
 | 2026-10-27 | 未发版 | 版本号独立：`manifest.json`、`manifest.firefox.json` 的 `version` 由上游 `2.7.4` 改为本分支 `0.0.1`；新增 `VERSIONS.md` 记录本分支版本与上游版本/提交的对应关系及发布前闸门 |
 | 2026-10-27 | 未发版 | 修 `justfile` 的 `prepare`：根目录没有 `*.js` 时 `cp -r ./*.{js,html} build/` 会以 exit 1 中止整个构建，改为 `find` 逐文件复制，`prepare` / `build-zip` / `build-crx` 才能按文档跑通 |
