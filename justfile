@@ -28,7 +28,7 @@ prepare: validate
     mkdir -p build
     cp -r ./{catch-script,css,img,js,lib,_locales,wmc} build/
     cp ./manifest.json build/
-    cp -r ./*.{js,html} build/
+    find . -maxdepth 1 \( -name '*.js' -o -name '*.html' \) -exec cp {} build/ \;
     @echo "✅ 文件复制完成"
 
 # 检查图标文件
