@@ -5,6 +5,9 @@
   "description": {
     "message": "Detect media on web pages, pick time ranges and download them"
   },
+  "wmc_panelTitle": {
+    "message": "Media Clips"
+  },
   "confirm": {
     "message": "Confirm"
   },

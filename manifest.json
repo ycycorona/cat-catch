@@ -80,6 +80,17 @@
       ],
       "run_at": "document_start",
       "all_frames": true
+    },
+    {
+      "matches": [
+        "https://*/*",
+        "http://*/*"
+      ],
+      "js": [
+        "wmc/overlay.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true
     }
   ],
   "default_locale": "en",

@@ -5,6 +5,9 @@
   "description": {
     "message": "识别网页中的媒体，选取时间段并下载"
   },
+  "wmc_panelTitle": {
+    "message": "媒体片段"
+  },
   "confirm": {
     "message": "确认"
   },

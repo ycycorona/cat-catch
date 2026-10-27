@@ -26,7 +26,8 @@ validate:
 prepare: validate
     @echo "准备构建目录..."
     mkdir -p build
-    cp -r ./{catch-script,css,img,js,lib,_locales} build/
+    cp -r ./{catch-script,css,img,js,lib,_locales,wmc} build/
+    cp ./manifest.json build/
     cp -r ./*.{js,html} build/
     @echo "✅ 文件复制完成"
 
