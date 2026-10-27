@@ -51,6 +51,7 @@ GPL §5a 要求标注修改。约定：**每个版本在此登记对上游文件
 | 2026-10-27 | 未发版 | SPEC-001 T4：`wmc/overlay.js` 支持蓝橙两槽、边界调整与删除、最近播放绑定、任务徽标和页内关闭；`wmc/sw.js` 一次快照提交两段，MP4 整段下载交给右邻后台标签页（自动关闭），独立 `wmcHandoffs` 仅供面板中立提示；`wmc/panel.js` 展示交接提示且不混入下载任务状态；`_locales/{zh_CN,en}` 仅新增 `wmc_` 文案；受限验证探针在私有夹具 `harness-t4/`，不打包 |
 | 2026-10-27 | 未发版 | SPEC-001 T3：新增 `wmc/hlscut.js`（HLS 点播切段，独立模块，不含上游代码）；`wmc/sw.js` 补 HLS 能力判定与四类不可选原因、HLS 整段下载交给上游 m3u8 解析页（后台标签 + 自动关闭）；`wmc/overlay.js` 不可选段时置灰「添加选段」并显示原因；`wmc/panel.js` 按 `kind` 分派切段模块；`_locales/{zh_CN,en}` 仅新增 `wmc_` 前缀的原因文案 |
 | 2026-10-27 | 未发版 | 品牌隔离补漏：`justfile` 的 `build-zip` / `build-crx` 产物名由 `cat-catch${VERSION}.zip` / `.crx` 改为 `web-media-clipper${VERSION}.zip` / `.crx`（发布物文件名此前仍带上游品牌） |
+| 2026-10-27 | 未发版 | 版本号独立：`manifest.json`、`manifest.firefox.json` 的 `version` 由上游 `2.7.4` 改为本分支 `0.0.1`；新增 `VERSIONS.md` 记录本分支版本与上游版本/提交的对应关系及发布前闸门 |
 | 2026-10-27 | 未发版 | 修 `justfile` 的 `prepare`：根目录没有 `*.js` 时 `cp -r ./*.{js,html} build/` 会以 exit 1 中止整个构建，改为 `find` 逐文件复制，`prepare` / `build-zip` / `build-crx` 才能按文档跑通 |
 | — | 0.1.0 | （待填）新增选段与任务模块 |
 
@@ -66,6 +67,7 @@ GPL §5a 要求标注修改。约定：**每个版本在此登记对上游文件
 | `options.html:890,914` | MQTT 默认 clientId / topic 含 `cat-catch` |
 | `img/icon.png`、`img/icon128.png`、`img/icon-disable.png` | ✅ 2026-10-27 中性占位（正式图标待定） |
 | `img/cat-down*.png` 等按钮图标 | 上游图标，待评估 |
+| `js/options.js:326` | 导出文件名前缀仍是 `cat-catch-<version>-…`（上游文件，属禁改区，仅记录） |
 | `js/init.js` | 在线服务地址（`ffmpeg.94cat.com`、StreamSaver mitm 等）——自建或改为可配置 |
 | `README*.md`、`CHANGELOG.md`、`justfile` 注释与描述 | 上游项目名与描述（文件名与产物名已处理，见下一条） |
 | `justfile` 发布产物名（`build-zip` / `build-crx`） | ✅ 2026-10-27：`cat-catch${VERSION}.zip` / `.crx` → `web-media-clipper${VERSION}.zip` / `.crx`，不再把上游品牌写进发布物 |
