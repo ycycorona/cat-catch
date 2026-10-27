@@ -18,6 +18,11 @@ function wmcCachedMedia(tabId, url) {
     return list.find((item) => item.url === url) || null;
 }
 
+function wmcDashCandidates(tabId) {
+    const list = (self.cacheData && self.cacheData[tabId]) || [];
+    return list.filter((item) => /\.mpd(\?|$)|dash\+xml/i.test(`${item.url || ""} ${item.type || ""}`));
+}
+
 function wmcM3u8Candidates(tabId) {
     const list = (self.cacheData && self.cacheData[tabId]) || [];
     return list
@@ -56,7 +61,11 @@ async function wmcResolveHls(tabId, duration) {
             current.item = match.item;
         }
     }
-    if (unique.size !== 1) return { selectable: false, reason: WMC_REASON.unknownSource };
+    if (unique.size !== 1) {
+        // 只有 DASH（.mpd）而没有 HLS 时给「不支持」的定论，避免把确定的不支持说成「找不到」。
+        if (unique.size === 0 && wmcDashCandidates(tabId).length) return { selectable: false, reason: WMC_REASON.unsupported };
+        return { selectable: false, reason: WMC_REASON.unknownSource };
+    }
     const { item, info } = unique.values().next().value;
     const media = {
         kind: "hls",
