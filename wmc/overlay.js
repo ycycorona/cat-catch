@@ -4,7 +4,11 @@
     window.__wmcOverlay = true;
 
     const MIN_DURATION = 10;
-    const BAR_WIDTH = 420;
+    const COMPACT_MAX_W = 840;
+    const COMPACT_MIN_W = 680;
+    const COMPACT_SINGLE_MIN = 760;
+    const COMPACT_SINGLE_H = 82;
+    const COMPACT_DOUBLE_H = 120;
     const SEG_COLORS = ["#3b82f6", "#f97316", "#22c55e"];
     const MARGIN = 16;
     let current = null;
@@ -14,7 +18,7 @@
     let followPlayback = true;
     let autoShow = false;
     let standardView = false;
-    const sizes = { compact: { width: BAR_WIDTH, height: 82 }, standard: { width: 760, height: 420 } };
+    const sizes = { compact: { width: COMPACT_SINGLE_MIN, height: COMPACT_SINGLE_H }, standard: { width: 760, height: 420 } };
     let jobs = [];
 
     chrome.storage.local.get({ wmcAutoShow: false }, (settings) => {
@@ -182,7 +186,18 @@
             .ticks { position: absolute; bottom: 0; left: 0; right: 0; justify-content: space-between;
                 pointer-events: none; color: #9ca3af; font: 10px ui-monospace, Consolas, monospace; }
             .standard .ticks { display: flex; }
-            .standard .add { width: auto; padding: 0 8px; margin-left: auto; border: 1px solid #475569; }
+            .add-wrap { position: relative; display: flex; }
+            .add.is-disabled { opacity: .4; cursor: not-allowed; background: none; }
+            .add.is-disabled:hover { background: none; }
+            .poptip { display: none; position: absolute; z-index: 6; left: 50%; bottom: calc(100% + 8px);
+                transform: translateX(-50%); padding: 4px 8px; border-radius: 6px; background: #111827;
+                color: #fde68a; font-size: 12px; line-height: 1.4; white-space: nowrap; pointer-events: none;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, .35); }
+            .poptip::after { content: ""; position: absolute; left: 50%; top: 100%; transform: translateX(-50%);
+                border: 5px solid transparent; border-top-color: #111827; }
+            .bar[data-tip] .poptip:not(:empty) { display: block; }
+            .standard .add-wrap { margin-left: auto; }
+            .standard .add { width: auto; padding: 0 8px; border: 1px solid #475569; }
             .standard .editor { display: block; overflow: auto; flex: 1; min-height: 0; margin-top: 14px; }
             .editor-header, .clip-row { display: grid; grid-template-columns: 25px minmax(128px,1fr) minmax(128px,1fr) 95px 52px;
                 gap: 8px; align-items: center; min-width: 500px; }
@@ -203,7 +218,7 @@
             .bar.roomy:not(.standard) .controls { flex-wrap: wrap; }
             .bar.roomy:not(.standard) .track { flex: 0 0 100%; order: 10; height: 28px; }
             .bar.roomy:not(.standard) .controls { position: absolute; left: 10px; right: 10px; bottom: 8px; }
-            .bar.roomy:not(.standard) .add { margin-left: auto; }
+            .bar.roomy:not(.standard) .add-wrap { margin-left: auto; }
             .resize { position: absolute; touch-action: none; z-index: 4; }
             .resize.n, .resize.s { height: 8px; left: 10px; right: 10px; cursor: ns-resize; }
             .resize.n { top: -4px; } .resize.s { bottom: -4px; }
@@ -222,13 +237,14 @@
         root.adoptedStyleSheets = [sheet];
         root.innerHTML = `
             <div class="bar">
+                <span class="poptip" role="tooltip"></span>
                 <div class="identity"><label for="wmc-media"></label><select class="media" id="wmc-media"></select></div>
                 <div class="controls">
                 <span class="handle" aria-hidden="true">⠿</span>
                 <button class="play" type="button"></button>
                 <span class="time">00:00 / 00:00</span>
                 <div class="track"><div class="rail"></div><div class="head"></div><div class="ticks"></div></div>
-                <button class="add" type="button">＋</button>
+                <span class="add-wrap"><button class="add" type="button">＋</button></span>
                 <button class="dl" type="button">↓</button>
                 <span class="badge" role="status" aria-live="polite"></span>
                 <button class="view" type="button">↗</button>
@@ -246,6 +262,8 @@
         const track = root.querySelector(".track");
         const head = root.querySelector(".head");
         const add = root.querySelector(".add");
+        const addWrap = root.querySelector(".add-wrap");
+        const tip = root.querySelector(".poptip");
         const dl = root.querySelector(".dl");
         const hint = root.querySelector(".hint");
         const badge = root.querySelector(".badge");
@@ -461,18 +479,71 @@
                 failed ? msg("wmc_statusFailed") : done ? msg("wmc_statusDone") : "");
         };
 
+        const capabilityReasons = () => ["wmc_reasonNoRange", "wmc_reasonUnknownSource", "wmc_reasonLive", "wmc_reasonUnsupported"].map(msg);
+        const standardHug = () => standard && !segments.some(Boolean) && start === null;
+        let frameKey = "";
+        const measureStandardHug = () => {
+            const editor = root.querySelector(".editor");
+            const prev = [host.style.height, bar.style.height, editor.style.flex];
+            host.style.height = "auto";
+            bar.style.height = "auto";
+            editor.style.flex = "none";
+            const height = Math.ceil(bar.getBoundingClientRect().height);
+            [host.style.height, bar.style.height, editor.style.flex] = prev;
+            return height;
+        };
+        const placeTip = () => {
+            const barRect = bar.getBoundingClientRect();
+            const btn = add.getBoundingClientRect();
+            if (!(barRect.width > 0)) return;
+            tip.style.left = `${btn.left + btn.width / 2 - barRect.left}px`;
+        };
+        const showTip = (open) => {
+            if (open && tip.textContent) {
+                placeTip();
+                bar.dataset.tip = "open";
+            } else delete bar.dataset.tip;
+        };
+        addWrap.addEventListener("pointerenter", () => showTip(true));
+        addWrap.addEventListener("pointerleave", () => showTip(false));
+        add.addEventListener("focus", () => showTip(true));
+        add.addEventListener("blur", () => showTip(false));
         const fit = (left, top) => {
             const size = sizes[standard ? "standard" : "compact"];
             const availableWidth = Math.max(1, window.innerWidth - 2 * MARGIN);
             const availableHeight = Math.max(1, window.innerHeight - 2 * MARGIN);
-            const width = Math.min(size.width, availableWidth);
-            const minimumHeight = standard ? 320 : width < (video.duration >= 3600 ? 480 : 420) ? 120 : 82;
-            const height = Math.min(Math.max(size.height, minimumHeight), availableHeight);
+            let width;
+            let height;
+            if (!standard) {
+                const single = size.height < COMPACT_DOUBLE_H;
+                const floor = single ? COMPACT_SINGLE_MIN : COMPACT_MIN_W;
+                const maxW = Math.min(COMPACT_MAX_W, availableWidth);
+                const minW = Math.min(floor, maxW);
+                width = clamp(size.width, minW, Math.max(minW, maxW));
+                height = width < COMPACT_SINGLE_MIN || !single ? COMPACT_DOUBLE_H : COMPACT_SINGLE_H;
+                sizes.compact = { width, height };
+            } else if (standardHug()) {
+                const minWidth = Math.min(610, availableWidth);
+                width = clamp(size.width, minWidth, Math.max(minWidth, Math.min(1200, availableWidth)));
+                host.style.width = `${width}px`;
+                height = Math.min(Math.max(measureStandardHug(), 1), availableHeight);
+            } else {
+                width = Math.min(size.width, availableWidth);
+                height = Math.min(Math.max(size.height, 320), availableHeight);
+            }
             host.style.width = `${width}px`;
             host.style.height = `${height}px`;
             host.style.left = `${clamp(left, 0, Math.max(0, window.innerWidth - width))}px`;
             host.style.top = `${clamp(top, 0, Math.max(0, window.innerHeight - height))}px`;
-            bar.classList.toggle("roomy", !standard && (height >= 120 || width < (video.duration >= 3600 ? 480 : 420)));
+            bar.classList.toggle("roomy", !standard && height >= COMPACT_DOUBLE_H);
+            if (bar.dataset.tip) placeTip();
+        };
+        const syncFrame = () => {
+            const key = `${standard}:${segments.filter(Boolean).length}:${start === null}`;
+            if (key === frameKey) return;
+            frameKey = key;
+            const rect = host.getBoundingClientRect();
+            if (rect.width > 0) fit(rect.left, rect.top);
         };
         const place = () => {
             const rect = video.getBoundingClientRect();
@@ -528,12 +599,17 @@
             view.textContent = standard ? "↙" : count > 2 ? `↗ ${count}` : "↗";
             view.style.width = !standard && count > 2 ? "auto" : "24px";
             add.textContent = standard ? `＋ ${msg("wmc_addSegment")}` : "＋";
-            add.disabled = blocked() || (!standard && start === null && segments.slice(0, 2).every(Boolean));
-            add.title = blocked() ? msg(capability?.reason || "wmc_reasonUnknownSource")
-                : add.disabled ? msg("wmc_maxSegments") : msg("wmc_addSegment");
+            const addBlocked = blocked() || (!standard && start === null && segments.slice(0, 2).every(Boolean));
+            add.disabled = false;
+            add.classList.toggle("is-disabled", addBlocked);
+            add.setAttribute("aria-disabled", String(addBlocked));
+            const capabilityText = capability?.selectable === false ? msg(capability.reason || "wmc_reasonUnknownSource") : "";
+            tip.textContent = capabilityText || (addBlocked && capability ? msg("wmc_maxSegments") : "");
+            add.removeAttribute("title");
             if (invalidInputs()) showHint(msg("wmc_invalidSegmentTime"));
-            else if (blocked()) showHint(add.title);
+            else if (capabilityReasons().includes(hint.textContent)) showHint("");
             renderBadge();
+            syncFrame();
         };
 
         const showHint = (text) => {
@@ -560,6 +636,7 @@
         });
 
         add.addEventListener("click", () => {
+            if (add.getAttribute("aria-disabled") === "true") return;
             const now = video.currentTime;
             if (standard && start === null) {
                 let index = segments.findIndex((seg) => !seg);
@@ -637,16 +714,36 @@
             edge.setAttribute("role", "button");
             edge.setAttribute("aria-label", `${msg("wmc_resizeOverlay")} (${direction})`);
             const resize = (rect, dx, dy) => {
-                const minWidth = Math.min(standard ? 610 : 360, Math.max(1, window.innerWidth - 2 * MARGIN));
-                const maxWidth = Math.max(minWidth, Math.min(standard ? 1200 : 840,
-                    direction.includes("w") ? rect.right : window.innerWidth - rect.left));
-                const width = clamp(rect.width + (direction.includes("e") ? dx : direction.includes("w") ? -dx : 0), minWidth, maxWidth);
-                const minHeight = Math.min(standard ? 420 : width < (video.duration >= 3600 ? 480 : 420) ? 120 : 82,
-                    Math.max(1, window.innerHeight - 2 * MARGIN));
-                const maxHeight = Math.max(minHeight, Math.min(standard ? window.innerHeight - 2 * MARGIN : 200,
+                const edgeMax = direction.includes("w") ? rect.right : window.innerWidth - rect.left;
+                const horizontal = direction.includes("e") || direction.includes("w");
+                if (!standard) {
+                    let layout = rect.height > COMPACT_SINGLE_H + 8 ? "double" : "single";
+                    if (direction.includes("s") && dy > 8) layout = "double";
+                    if (dy < -8 && (direction.includes("n") || horizontal)) layout = "single";
+                    let width = rect.width + (direction.includes("e") ? dx : direction.includes("w") ? -dx : 0);
+                    if (layout === "single") width = Math.max(width, COMPACT_SINGLE_MIN);
+                    const maxW = Math.max(COMPACT_MIN_W, Math.min(COMPACT_MAX_W, edgeMax));
+                    const minW = Math.min(layout === "single" ? COMPACT_SINGLE_MIN : COMPACT_MIN_W, maxW);
+                    width = clamp(width, minW, maxW);
+                    const height = layout === "double" || width < COMPACT_SINGLE_MIN ? COMPACT_DOUBLE_H : COMPACT_SINGLE_H;
+                    sizes.compact = { width, height };
+                    fit(direction.includes("w") ? rect.right - width : rect.left,
+                        direction.includes("n") ? rect.bottom - height : rect.top);
+                    return;
+                }
+                const minWidth = Math.min(610, Math.max(1, window.innerWidth - 2 * MARGIN));
+                const maxWidth = Math.max(minWidth, Math.min(1200, edgeMax));
+                const width = clamp(rect.width + (horizontal ? (direction.includes("e") ? dx : -dx) : 0), minWidth, maxWidth);
+                if (standardHug()) {
+                    sizes.standard.width = width;
+                    fit(direction.includes("w") ? rect.right - width : rect.left, rect.top);
+                    return;
+                }
+                const minHeight = Math.min(420, Math.max(1, window.innerHeight - 2 * MARGIN));
+                const maxHeight = Math.max(minHeight, Math.min(window.innerHeight - 2 * MARGIN,
                     direction.includes("n") ? rect.bottom : window.innerHeight - rect.top));
                 const height = clamp(rect.height + (direction.includes("s") ? dy : direction.includes("n") ? -dy : 0), minHeight, maxHeight);
-                sizes[standard ? "standard" : "compact"] = { width, height };
+                sizes.standard = { width, height };
                 fit(direction.includes("w") ? rect.right - width : rect.left,
                     direction.includes("n") ? rect.bottom - height : rect.top);
             };
