@@ -131,25 +131,35 @@
         let capability = null; // 最近一次 wmcResolve 的结果：{ selectable, kind, reason }
         let resolveAt = 0; // 上次判定的时间，用来给重试限频
         let resolveTries = 0;
-        const blocked = () => !!(capability && capability.selectable === false);
+        let source = video.currentSrc;
+        let sourceDuration = video.duration;
+        let resolveVersion = 0;
+        let resolving = false;
+        const blocked = () => !capability || capability.selectable === false;
         // 「没找到播放列表」是临时结论：cacheData 会随播放继续补齐，允许限频重试；
         // 直播/加密/无 Range 是定论，不重试。
-        const retryable = () => blocked() && capability.reason === "wmc_reasonUnknownSource" && resolveTries < 12;
-        // AC-12：能力判定每次只问 SW 一次，判不出（F6）或直播/加密/DRM 时置灰添加选段。
+        const retryable = () => capability?.reason === "wmc_reasonUnknownSource" && resolveTries < 12;
+        // [WMC] 每个媒体身份独立判定，未确认能力时禁用添加选段。
         const resolveMedia = () => {
             resolveAt = Date.now();
             resolveTries += 1;
+            resolving = true;
+            const version = ++resolveVersion;
+            const url = video.currentSrc;
             chrome.runtime.sendMessage({
                 Message: "wmcResolve",
-                url: video.currentSrc,
-                currentSrc: video.currentSrc,
+                url,
+                currentSrc: url,
                 duration: video.duration,
                 drm: !!video.mediaKeys,
                 mediaStream: !!video.srcObject,
             }, (response) => {
                 const error = chrome.runtime.lastError;
-                if (error || signal.aborted) return;
-                capability = response || null;
+                if (signal.aborted || version !== resolveVersion || url !== video.currentSrc) return;
+                resolving = false;
+                capability = !error && typeof response?.selectable === "boolean" ? response :
+                    { selectable: false, reason: "wmc_reasonUnknownSource" };
+                showHint("");
                 render();
             });
         };
@@ -247,9 +257,9 @@
                 }
             });
             add.disabled = blocked() || segments.every(Boolean);
-            add.title = blocked() ? msg(capability.reason)
+            add.title = blocked() ? msg(capability?.reason || "wmc_reasonUnknownSource")
                 : add.disabled ? msg("wmc_maxSegments") : msg("wmc_addSegment");
-            if (blocked()) showHint(msg(capability.reason));
+            if (blocked()) showHint(add.title);
             renderBadge();
         };
 
@@ -344,13 +354,26 @@
             window.addEventListener("pointercancel", up, { signal });
         });
 
-        for (const type of ["play", "pause", "timeupdate", "seeked", "durationchange", "loadedmetadata"]) {
+        for (const type of ["play", "pause", "timeupdate", "seeked", "durationchange", "loadedmetadata", "emptied", "loadstart", "encrypted"]) {
             video.addEventListener(type, () => {
-                // HLS 的 blob: 源与时长在挂载后才稳定，首个元数据事件补一次判定；
-                // 结论若是「没找到播放列表」，播放过程中按 3 秒间隔重试，直到嗅探补齐或次数用尽。
                 const meta = type === "loadedmetadata" || type === "durationchange";
+                // [WMC] 广告/正文共用 video 时丢弃旧能力、未提交选段和异步响应。
+                if (source !== video.currentSrc || type === "emptied" || type === "loadstart" || type === "encrypted" ||
+                    (meta && Number.isFinite(video.duration) && Math.abs(video.duration - sourceDuration) > 2)) {
+                    source = video.currentSrc;
+                    sourceDuration = video.duration;
+                    resolveVersion += 1;
+                    resolving = false;
+                    capability = null;
+                    resolveTries = 0;
+                    start = null;
+                    segments.fill(null);
+                    showHint("");
+                }
+                if (meta) sourceDuration = video.duration;
                 const retryNow = retryable() && Date.now() - resolveAt > 3000 && (meta || type === "timeupdate");
-                if ((!capability && meta) || retryNow) resolveMedia();
+                if (!resolving && video.currentSrc && Number.isFinite(video.duration) &&
+                    (!capability || retryNow)) resolveMedia();
                 render();
             }, { signal });
         }

@@ -55,6 +55,7 @@ GPL §5a 要求标注修改。约定：**每个版本在此登记对上游文件
 | 2026-10-27 | 未发版 | 品牌隔离扩展：`install.html`、`js/install.js` 的安装欢迎页文案与上游反馈链接改中性/指向本仓库 issue；`options.html` 的 11 处 `cat-catch.94cat.com` 文档链接、2 处上游 GitHub 链接改为本仓库，MQTT 默认占位值 `cat-catch-client`/`cat-catch/media` 改为 `web-media-clipper-*`；`_locales/{zh_CN,en}` 的 6 个含上游产品名的标题条目改中性。`AGENTS.md` 铁律 2 的品牌例外随之写明这三个文件只许改品牌字符串与上游链接 |
 | 2026-10-27 | 未发版 | 版本号独立：`manifest.json`、`manifest.firefox.json` 的 `version` 由上游 `2.7.4` 改为本分支 `0.0.1`；新增 `VERSIONS.md` 记录本分支版本与上游版本/提交的对应关系及发布前闸门 |
 | 2026-10-27 | 未发版 | 修 `justfile` 的 `prepare`：根目录没有 `*.js` 时 `cp -r ./*.{js,html} build/` 会以 exit 1 中止整个构建，改为 `find` 逐文件复制，`prepare` / `build-zip` / `build-crx` 才能按文档跑通 |
+| 2026-10-28 | 未发版 | 媒体源判定修复：`wmc/hlscut.js` 返回 master 声明的变体关系，`wmc/sw.js` 按同源变体归组并保留独立来源歧义；无 MPD 的 Bilibili DASH 通过当前 frame 的播放器数据确认后显示既有不支持文案；`wmc/overlay.js` 换源清理未提交选段、重新判定并忽略旧响应，判定期间禁用添加选段 |
 | — | 0.1.0 | （待填）新增选段与任务模块 |
 
 ## 5. 品牌隔离清单（fork 后必须替换）

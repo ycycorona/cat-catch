@@ -44,13 +44,20 @@ async function wmcResolveHls(tabId, duration) {
         if (!Number.isFinite(duration) || Math.abs(info.duration - duration) > WMC_HLS_TOLERANCE) continue;
         matches.push({ item, info });
     }
-    // 同一个源会同时嗅到 master 与变体：按解析出的媒体播放列表去重，
-    // 但不可选条件（ENDLIST / SAMPLE-AES / 独立音轨）要合并，不能只留最后一个。
+    // [WMC] 只归并 master 明确声明的变体；同长但无关联的媒体仍保留歧义。
+    const playlistGroups = new Map();
+    for (const { info } of matches) {
+        if (!info.variantUrls.length) continue;
+        for (const url of [info.masterUrl, ...info.variantUrls]) {
+            playlistGroups.set(url, info.playlistUrl);
+        }
+    }
     const unique = new Map();
     for (const match of matches) {
-        const current = unique.get(match.info.playlistUrl);
+        const key = playlistGroups.get(match.info.masterUrl) || match.info.playlistUrl;
+        const current = unique.get(key);
         if (!current) {
-            unique.set(match.info.playlistUrl, { item: match.item, info: { ...match.info } });
+            unique.set(key, { item: match.item, info: { ...match.info } });
             continue;
         }
         current.info.endlist = current.info.endlist && match.info.endlist;
@@ -78,11 +85,44 @@ async function wmcResolveHls(tabId, duration) {
     return { ...media, selectable: true };
 }
 
+// [WMC] 无 MPD 的 Bilibili DASH 由播放器数据确认；.m4s 本身也可能属于 HLS。
+async function wmcKnownDash(tabId, url, duration, frameId) {
+    if (!/^blob:https:\/\/(?:[\w-]+\.)*bilibili\.com\//i.test(url)) return false;
+    try {
+        const [probe] = await chrome.scripting.executeScript({
+            target: { tabId, frameIds: [frameId] },
+            world: "MAIN",
+            func: (src, seconds) => {
+                const dash = window.__playinfo__?.data?.dash;
+                if (dash?.video?.length && dash?.audio?.length &&
+                    Math.abs(dash.duration - seconds) <= 2 &&
+                    [...document.querySelectorAll("video")].some((video) =>
+                        video.currentSrc === src && Math.abs(video.duration - seconds) <= 2)) return true;
+                const player = window.player?.__core?.()?.player;
+                const video = player?.getVideoElement?.();
+                return !!(video?.currentSrc === src && Math.abs(video.duration - seconds) <= 2 &&
+                    player.getTracksFor("video").length && player.getTracksFor("audio").length);
+            },
+            args: [url, duration],
+        });
+        return probe?.result === true;
+    } catch (e) {
+        return false;
+    }
+}
+
 // http(s) 走 Range 探测，blob: 走 HLS 判定。DRM / srcObject 由内容脚本判定后作为入参传入。
 async function wmcResolveMedia(tabId, url, duration, flags) {
     if (flags && (flags.drm || flags.mediaStream)) return { selectable: false, reason: WMC_REASON.unsupported };
     if (typeof url !== "string" || !url) return { selectable: false, reason: WMC_REASON.unknownSource };
-    if (/^blob:/i.test(url)) return wmcResolveHls(tabId, duration);
+    if (/^blob:/i.test(url)) {
+        const media = await wmcResolveHls(tabId, duration);
+        if (media.reason === WMC_REASON.unknownSource &&
+            await wmcKnownDash(tabId, url, duration, flags?.frameId ?? 0)) {
+            return { selectable: false, reason: WMC_REASON.unsupported };
+        }
+        return media;
+    }
     if (!/^https?:\/\//i.test(url)) return { selectable: false, reason: WMC_REASON.unknownSource };
     let status = 0;
     try {
@@ -131,8 +171,8 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
 
 // AC-11：交接提示与下载任务分开保存，不伪造下载进度或“已完成”。
 // MP4 交给上游下载页；HLS（blob: 源）交给上游 m3u8 解析页，仍开在右邻后台标签并自动关闭。
-async function wmcHandoff(message, tab) {
-    const media = await wmcResolveMedia(tab.id, message.url, message.duration, {});
+async function wmcHandoff(message, tab, frameId) {
+    const media = await wmcResolveMedia(tab.id, message.url, message.duration, { frameId });
     let url;
     if (/^https?:\/\//i.test(message.url)) {
         const item = wmcCachedMedia(tab.id, message.url);
@@ -182,13 +222,13 @@ async function wmcSubmit(message, sender) {
     if (!tab || typeof tab.id !== "number") return { ok: false, error: "no-tab" };
     const segments = message.segments;
     if (!Array.isArray(segments) || segments.length > 2) return { ok: false, error: "bad-segments" };
-    if (!segments.length) return wmcHandoff(message, tab);
+    if (!segments.length) return wmcHandoff(message, tab, sender.frameId);
     if (!Number.isFinite(message.duration) || message.duration < 10 ||
         segments.some((seg) => !seg || ![0, 1].includes(seg.segIndex) ||
             !Number.isFinite(seg.start) || !Number.isFinite(seg.end) ||
             seg.start < 0 || seg.end <= seg.start || seg.end > message.duration) ||
         new Set(segments.map((seg) => seg.segIndex)).size !== segments.length) return { ok: false, error: "bad-range" };
-    const media = await wmcResolveMedia(tab.id, message.url, message.duration, {});
+    const media = await wmcResolveMedia(tab.id, message.url, message.duration, { frameId: sender.frameId });
     if (!media.selectable) return { ok: false, error: "not-selectable" };
     // 提交时整体快照（字段见 SPEC「Interfaces and data」），之后改选段不影响这条记录。
     const submitted = segments.map((seg) => ({
@@ -244,7 +284,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         settle((async () => {
             const tabId = sender.tab && sender.tab.id;
             if (message.drm || message.mediaStream) return { selectable: false, kind: null, reason: WMC_REASON.unsupported };
-            const media = await wmcResolveMedia(tabId, message.currentSrc || message.url, message.duration, {});
+            const media = await wmcResolveMedia(tabId, message.currentSrc || message.url, message.duration, { frameId: sender.frameId });
             return {
                 selectable: media.selectable,
                 kind: media.kind || null,

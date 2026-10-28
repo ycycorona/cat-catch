@@ -155,6 +155,7 @@
         return {
             masterUrl: url,
             playlistUrl: playlistUrl,
+            variantUrls: master.variants.map(function (variant) { return variant.url; }),
             duration: total(media.segments),
             endlist: media.endlist,
             sampleAes: master.sampleAes || media.sampleAes,
