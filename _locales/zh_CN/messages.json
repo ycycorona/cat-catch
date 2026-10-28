@@ -1139,6 +1139,27 @@
   "wmc_currentMedia": {
     "message": "当前媒体"
   },
+  "wmc_standardView": {
+    "message": "展开标准视图"
+  },
+  "wmc_compactView": {
+    "message": "收起到简洁视图"
+  },
+  "wmc_segmentDuration": {
+    "message": "时长"
+  },
+  "wmc_segmentsSummary": {
+    "message": "$1 段 · 合计 $2"
+  },
+  "wmc_invalidSegmentTime": {
+    "message": "请输入有效时间（HH:MM:SS.mmm），开始必须早于结束且不能超出总时长"
+  },
+  "wmc_locateSegment": {
+    "message": "定位到选段起点"
+  },
+  "wmc_resizeOverlay": {
+    "message": "调整浮窗大小"
+  },
   "wmc_autoShowOverlay": {
     "message": "自动显示浮窗"
   },

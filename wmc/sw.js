@@ -221,10 +221,10 @@ async function wmcSubmit(message, sender) {
     const tab = sender.tab;
     if (!tab || typeof tab.id !== "number") return { ok: false, error: "no-tab" };
     const segments = message.segments;
-    if (!Array.isArray(segments) || segments.length > 2) return { ok: false, error: "bad-segments" };
+    if (!Array.isArray(segments)) return { ok: false, error: "bad-segments" };
     if (!segments.length) return wmcHandoff(message, tab, sender.frameId);
     if (!Number.isFinite(message.duration) || message.duration < 10 ||
-        segments.some((seg) => !seg || ![0, 1].includes(seg.segIndex) ||
+        segments.some((seg) => !seg || !Number.isSafeInteger(seg.segIndex) || seg.segIndex < 0 ||
             !Number.isFinite(seg.start) || !Number.isFinite(seg.end) ||
             seg.start < 0 || seg.end <= seg.start || seg.end > message.duration) ||
         new Set(segments.map((seg) => seg.segIndex)).size !== segments.length) return { ok: false, error: "bad-range" };

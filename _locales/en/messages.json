@@ -1139,6 +1139,27 @@
   "wmc_currentMedia": {
     "message": "Current media"
   },
+  "wmc_standardView": {
+    "message": "Expand standard view"
+  },
+  "wmc_compactView": {
+    "message": "Collapse to compact view"
+  },
+  "wmc_segmentDuration": {
+    "message": "Duration"
+  },
+  "wmc_segmentsSummary": {
+    "message": "$1 clips · Total $2"
+  },
+  "wmc_invalidSegmentTime": {
+    "message": "Enter a valid time (HH:MM:SS.mmm); start must precede end within the media duration"
+  },
+  "wmc_locateSegment": {
+    "message": "Go to clip start"
+  },
+  "wmc_resizeOverlay": {
+    "message": "Resize clip controls"
+  },
   "wmc_autoShowOverlay": {
     "message": "Show controls automatically"
   },

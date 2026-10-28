@@ -1,7 +1,7 @@
 // [WMC] SPEC-001 T6：任务面板——平铺列表 + 执行宿主（一次一个任务，按提交顺序）。
 // 队列与状态只有一份来源：chrome.storage.session 的 wmcJobs。本文件不读写 cacheData。
 (() => {
-    const SEG_COLORS = ["#3b82f6", "#f97316"];
+    const SEG_COLORS = ["#3b82f6", "#f97316", "#22c55e"];
     const STATUS_KEYS = {
         queued: "wmc_statusQueued",
         running: "wmc_statusRunning",
