@@ -1139,6 +1139,12 @@
   "wmc_currentMedia": {
     "message": "Current media"
   },
+  "wmc_autoShowOverlay": {
+    "message": "Show controls automatically"
+  },
+  "wmc_overlaySettingFailed": {
+    "message": "Cannot save the controls setting. Try again."
+  },
   "wmc_followPlayback": {
     "message": "Follow latest playback"
   },

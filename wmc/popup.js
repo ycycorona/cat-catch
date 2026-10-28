@@ -2,8 +2,32 @@
 (() => {
     const button = document.getElementById("wmc-open-overlay");
     const error = document.getElementById("wmc-open-error");
+    const autoShow = document.getElementById("wmc-auto-overlay");
     const msg = (key) => chrome.i18n.getMessage(key);
+    const showError = (key) => {
+        error.textContent = msg(key);
+        error.hidden = false;
+    };
     button.textContent = msg("wmc_openOverlay");
+    autoShow.nextElementSibling.textContent = msg("wmc_autoShowOverlay");
+    chrome.storage.local.get({ wmcAutoShow: false }, (settings) => {
+        if (chrome.runtime.lastError) showError("wmc_overlaySettingFailed");
+        else autoShow.checked = settings.wmcAutoShow === true;
+        autoShow.disabled = false;
+    });
+    autoShow.addEventListener("change", async () => {
+        const enabled = autoShow.checked;
+        autoShow.disabled = true;
+        error.hidden = true;
+        try {
+            await chrome.storage.local.set({ wmcAutoShow: enabled });
+        } catch {
+            autoShow.checked = !enabled;
+            showError("wmc_overlaySettingFailed");
+        } finally {
+            autoShow.disabled = false;
+        }
+    });
     button.addEventListener("click", async () => {
         button.disabled = true;
         error.textContent = "";
@@ -27,8 +51,7 @@
             const result = await chrome.tabs.sendMessage(tabId, { Message: "wmcShowOverlay" }, { frameId: candidates[0].frameId });
             if (!result?.ok) throw new Error(result?.reason === "wmc_noVideo" ? "wmc_noVideo" : "wmc_cannotOpenOverlay");
         } catch (failure) {
-            error.textContent = msg(failure.message === "wmc_noVideo" ? "wmc_noVideo" : "wmc_cannotOpenOverlay");
-            error.hidden = false;
+            showError(failure.message === "wmc_noVideo" ? "wmc_noVideo" : "wmc_cannotOpenOverlay");
         } finally {
             button.disabled = false;
         }

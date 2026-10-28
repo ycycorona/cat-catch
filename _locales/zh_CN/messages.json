@@ -1139,6 +1139,12 @@
   "wmc_currentMedia": {
     "message": "当前媒体"
   },
+  "wmc_autoShowOverlay": {
+    "message": "自动显示浮窗"
+  },
+  "wmc_overlaySettingFailed": {
+    "message": "无法保存浮窗设置，请重试"
+  },
   "wmc_followPlayback": {
     "message": "跟随最近播放"
   },

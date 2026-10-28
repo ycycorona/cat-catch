@@ -11,7 +11,15 @@
     let latestVideo = null;
     let latestPlayedAt = 0;
     let followPlayback = true;
+    let autoShow = false;
     let jobs = [];
+
+    chrome.storage.local.get({ wmcAutoShow: false }, (settings) => {
+        if (!chrome.runtime.lastError) autoShow = settings.wmcAutoShow === true;
+    });
+    chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === "local" && changes.wmcAutoShow) autoShow = changes.wmcAutoShow.newValue === true;
+    });
 
     const msg = (key) => chrome.i18n.getMessage(key);
     const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
@@ -41,7 +49,7 @@
 
     // 自动跟随保持原规则；手动选择后，其他视频播放不再抢占控制器。
     function tryMount(video) {
-        if (dismissed || !followPlayback || latestVideo !== video) return;
+        if (dismissed || !followPlayback || (!autoShow && !current) || latestVideo !== video) return;
         selectVideo(video);
     }
 
