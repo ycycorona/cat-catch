@@ -1136,6 +1136,27 @@
   "fileName": {
     "message": "File Name"
   },
+  "wmc_currentMedia": {
+    "message": "Current media"
+  },
+  "wmc_followPlayback": {
+    "message": "Follow latest playback"
+  },
+  "wmc_videoNumber": {
+    "message": "Video $1"
+  },
+  "wmc_confirmSwitchMedia": {
+    "message": "Switch media and clear unsubmitted clips?"
+  },
+  "wmc_openOverlay": {
+    "message": "Open clip controls"
+  },
+  "wmc_noVideo": {
+    "message": "Play a video on this page first"
+  },
+  "wmc_cannotOpenOverlay": {
+    "message": "Clip controls cannot open on this page"
+  },
   "wmc_reasonNoRange": {
     "message": "The server does not support ranged requests"
   },

@@ -1136,6 +1136,27 @@
   "fileName": {
     "message": "文件名"
   },
+  "wmc_currentMedia": {
+    "message": "当前媒体"
+  },
+  "wmc_followPlayback": {
+    "message": "跟随最近播放"
+  },
+  "wmc_videoNumber": {
+    "message": "视频 $1"
+  },
+  "wmc_confirmSwitchMedia": {
+    "message": "切换媒体将清空未提交的选段，是否继续？"
+  },
+  "wmc_openOverlay": {
+    "message": "打开分段浮窗"
+  },
+  "wmc_noVideo": {
+    "message": "请先播放网页中的视频"
+  },
+  "wmc_cannotOpenOverlay": {
+    "message": "当前页面无法打开浮窗"
+  },
   "wmc_reasonNoRange": {
     "message": "服务器不支持分段读取"
   },

@@ -9,6 +9,8 @@
     let current = null;
     let dismissed = false;
     let latestVideo = null;
+    let latestPlayedAt = 0;
+    let followPlayback = true;
     let jobs = [];
 
     const msg = (key) => chrome.i18n.getMessage(key);
@@ -22,18 +24,32 @@
         return h ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
     };
 
-    // 只挂载播放中的长视频；短片、无 video、直播（duration 非有限值）都不建可见元素。
-    function tryMount(video) {
-        if (dismissed || latestVideo !== video || current?.video === video) return;
-        if (!isFinite(video.duration) || video.duration < MIN_DURATION) return;
+    const eligible = (video) => !!video?.isConnected && Number.isFinite(video.duration) && video.duration >= MIN_DURATION;
+    // shortcut: 只列当前 frame 的视频；合并跨域 frame 列表时再增加汇总协议。
+    const videos = () => [...document.querySelectorAll("video")].filter(eligible);
+    const targetVideo = () => eligible(current?.video) ? current.video :
+        eligible(latestVideo) ? latestVideo : videos().find((video) => !video.paused) || videos()[0];
+
+    function selectVideo(video, confirmSwitch = false) {
+        if (!eligible(video)) return false;
+        if (current?.video === video) return true;
+        if (confirmSwitch && current?.hasSegments() && !window.confirm(msg("wmc_confirmSwitchMedia"))) return false;
         current?.remove();
         current = mount(video);
+        return true;
+    }
+
+    // 自动跟随保持原规则；手动选择后，其他视频播放不再抢占控制器。
+    function tryMount(video) {
+        if (dismissed || !followPlayback || latestVideo !== video) return;
+        selectVideo(video);
     }
 
     document.addEventListener("play", (e) => {
         const video = e.target;
-        if (!(video instanceof HTMLVideoElement) || dismissed) return;
+        if (!(video instanceof HTMLVideoElement)) return;
         latestVideo = video;
+        latestPlayedAt = Date.now();
         if (isFinite(video.duration)) {
             tryMount(video);
         } else {
@@ -41,7 +57,23 @@
         }
     }, true);
 
-    chrome.runtime.onMessage.addListener((message) => {
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.Message === "wmcGetOverlayState") {
+            const video = targetVideo();
+            sendResponse({ available: !!video, bound: eligible(current?.video), playing: !!video && !video.paused, latestPlayedAt });
+            return;
+        }
+        if (message.Message === "wmcShowOverlay") {
+            const video = targetVideo();
+            if (!video || !selectVideo(video)) {
+                sendResponse({ ok: false, reason: "wmc_noVideo" });
+                return;
+            }
+            dismissed = false;
+            current.show();
+            sendResponse({ ok: true });
+            return;
+        }
         if (message.Message !== "wmcJobsChanged") return;
         jobs = message.jobs || [];
         current?.renderBadge();
@@ -51,6 +83,22 @@
         jobs = response?.jobs || [];
         current?.renderBadge();
     });
+
+    for (const type of ["play", "pause", "loadedmetadata", "durationchange"]) {
+        document.addEventListener(type, (event) => {
+            if (event.target instanceof HTMLVideoElement) current?.renderMedia();
+        }, true);
+    }
+    new MutationObserver(() => {
+        if (current && !current.video.isConnected) {
+            current.remove();
+            current = null;
+            followPlayback = true;
+            if (!dismissed) selectVideo(targetVideo());
+        }
+        current?.renderMedia();
+    }).observe(document.documentElement, { childList: true, subtree: true, attributes: true,
+        attributeFilter: ["title", "aria-label"] });
 
     function mount(video) {
         const events = new AbortController();
@@ -62,10 +110,15 @@
         const sheet = new CSSStyleSheet();
         sheet.replaceSync(`
             :host { all: initial; }
-            .bar { position: relative; display: flex; align-items: center; gap: 8px; box-sizing: border-box;
+            .bar { position: relative; box-sizing: border-box;
                 width: 100%; padding: 8px 10px; border-radius: 10px; background: rgba(17,24,39,.94);
                 color: #f9fafb; font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
                 box-shadow: 0 6px 20px rgba(0,0,0,.35); user-select: none; }
+            .identity, .controls { display: flex; align-items: center; gap: 8px; }
+            .identity { padding-bottom: 7px; margin-bottom: 7px; border-bottom: 1px solid rgba(255,255,255,.08); }
+            .identity label { color: #9ca3af; font-size: 11px; white-space: nowrap; }
+            .media { flex: 1; min-width: 0; color-scheme: dark; font: inherit; font-size: 12px; height: 23px; }
+            .media:focus-visible { outline: 2px solid #60a5fa; }
             .handle { cursor: grab; color: #9ca3af; font-size: 14px; letter-spacing: 1px; padding: 0 2px; touch-action: none; }
             button { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: center;
                 width: 24px; height: 24px; border-radius: 6px; color: #f9fafb; cursor: pointer; font-size: 13px; }
@@ -99,6 +152,8 @@
         root.adoptedStyleSheets = [sheet];
         root.innerHTML = `
             <div class="bar">
+                <div class="identity"><label for="wmc-media"></label><select class="media" id="wmc-media"></select></div>
+                <div class="controls">
                 <span class="handle" aria-hidden="true">⠿</span>
                 <button class="play" type="button"></button>
                 <span class="time">0:00 / 0:00</span>
@@ -107,6 +162,7 @@
                 <button class="dl" type="button">↓</button>
                 <span class="badge" role="status" aria-live="polite"></span>
                 <button class="close" type="button">×</button>
+                </div>
                 <div class="hint" role="status" aria-live="polite"></div>
             </div>`;
 
@@ -120,6 +176,50 @@
         const hint = root.querySelector(".hint");
         const badge = root.querySelector(".badge");
         const close = root.querySelector(".close");
+        const media = root.querySelector(".media");
+        root.querySelector(".identity label").textContent = msg("wmc_currentMedia");
+
+        let mediaVideos = [];
+        let mediaSignature = "";
+        const mediaName = (item, index, count) => {
+            const title = item.getAttribute("aria-label")?.trim() || item.title.trim();
+            if (title) return title;
+            try {
+                const url = new URL(item.currentSrc);
+                if (["http:", "https:"].includes(url.protocol)) {
+                    const name = decodeURIComponent(url.pathname.split("/").pop());
+                    if (name) return name;
+                }
+            } catch { /* 无效来源或编码时回退为可读名称。 */ }
+            return count === 1 && document.title.trim() ||
+                chrome.i18n.getMessage("wmc_videoNumber", String(index + 1));
+        };
+        const renderMedia = () => {
+            if (root.activeElement === media) return;
+            const items = videos();
+            const names = items.map((item, index) => mediaName(item, index, items.length));
+            const labels = names.map((name, index) => {
+                const item = items[index];
+                const duplicate = names.indexOf(name) !== names.lastIndexOf(name);
+                return `${item.paused ? "" : "▶ "}${name}${duplicate ? ` · ${index + 1}` : ""} · ${fmt(item.duration)}`;
+            });
+            const signature = JSON.stringify([labels, items.indexOf(video)]);
+            mediaVideos = items;
+            media.title = names[items.indexOf(video)] || "";
+            if (signature === mediaSignature) return;
+            mediaSignature = signature;
+            media.replaceChildren(new Option(msg("wmc_followPlayback"), "auto"),
+                ...labels.map((label, index) => new Option(label, String(index))));
+            media.value = String(items.indexOf(video));
+        };
+        media.addEventListener("pointerdown", renderMedia);
+        media.addEventListener("blur", renderMedia);
+        media.addEventListener("change", () => {
+            const auto = media.value === "auto";
+            const target = auto ? eligible(latestVideo) ? latestVideo : video : mediaVideos[Number(media.value)];
+            if (selectVideo(target, true)) followPlayback = auto;
+            media.value = String(mediaVideos.indexOf(video));
+        });
 
         play.setAttribute("aria-label", msg("wmc_play"));
         add.setAttribute("aria-label", msg("wmc_addSegment"));
@@ -311,8 +411,7 @@
 
         close.addEventListener("click", () => {
             dismissed = true;
-            current?.remove();
-            current = null;
+            host.style.display = "none";
         });
 
         handle.addEventListener("pointerdown", (e) => {
@@ -382,7 +481,10 @@
         document.documentElement.appendChild(host);
         place();
         render();
+        renderMedia();
         resolveMedia();
-        return { video, renderBadge, remove: () => { events.abort(); host.remove(); } };
+        return { video, renderBadge, renderMedia, hasSegments: () => start !== null || segments.some(Boolean),
+            show: () => { host.style.display = ""; renderMedia(); place(); },
+            remove: () => { events.abort(); host.remove(); } };
     }
 })();
