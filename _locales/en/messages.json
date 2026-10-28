@@ -9,7 +9,13 @@
     "message": "Segment end"
   },
   "wmc_maxSegments": {
-    "message": "Maximum 2 segments"
+    "message": "↗ Open the standard view to add more"
+  },
+  "wmc_playPause": {
+    "message": "Play, pause"
+  },
+  "wmc_tipClose": {
+    "message": "Close"
   },
   "wmc_closeOverlay": {
     "message": "Close controller"

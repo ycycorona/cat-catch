@@ -9,7 +9,13 @@
     "message": "选段终点"
   },
   "wmc_maxSegments": {
-    "message": "最多 2 段"
+    "message": "↗ 展开标准视图，添加更多"
+  },
+  "wmc_playPause": {
+    "message": "播放、暂停"
+  },
+  "wmc_tipClose": {
+    "message": "关闭"
   },
   "wmc_closeOverlay": {
     "message": "关闭控制器"

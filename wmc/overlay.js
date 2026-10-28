@@ -4,7 +4,6 @@
     window.__wmcOverlay = true;
 
     const MIN_DURATION = 10;
-    const COMPACT_MAX_W = 840;
     const COMPACT_MIN_W = 680;
     const COMPACT_SINGLE_MIN = 760;
     const COMPACT_SINGLE_H = 82;
@@ -155,7 +154,8 @@
             .track { position: relative; flex: 1; min-width: 28px; height: 16px; display: flex; align-items: center;
                 cursor: pointer; touch-action: none; }
             .rail { position: relative; width: 100%; height: 4px; border-radius: 2px; background: rgba(255,255,255,.28); }
-            .seg { position: absolute; top: -9px; height: 8px; border-radius: 3px; }
+            .seg { position: absolute; top: -9px; height: 8px; border-radius: 3px; touch-action: none; }
+            .seg:not(.pending) { cursor: grab; }
             .seg.pending { opacity: .6; }
             .seg[hidden] { display: none; }
             .edge { position: absolute; top: -4px; width: 8px; height: 16px; cursor: ew-resize;
@@ -195,7 +195,9 @@
                 box-shadow: 0 4px 12px rgba(0, 0, 0, .35); }
             .poptip::after { content: ""; position: absolute; left: 50%; top: 100%; transform: translateX(-50%);
                 border: 5px solid transparent; border-top-color: #111827; }
-            .bar[data-tip] .poptip:not(:empty) { display: block; }
+            .bar[data-tip] > .poptip:not(:empty) { display: block; }
+            .edge[data-tip] > .poptip:not(:empty),
+            .seg[data-tip] > .poptip:not(:empty) { display: block; }
             .standard .add-wrap { margin-left: auto; }
             .standard .add { width: auto; padding: 0 8px; border: 1px solid #475569; }
             .standard .editor { display: block; overflow: auto; flex: 1; min-height: 0; margin-top: 14px; }
@@ -231,8 +233,6 @@
             .resize.sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
             .resize:focus-visible { outline: 2px solid #60a5fa; }
             .bar:hover { outline: 1px solid rgba(147,197,253,.5); }
-            .resize.se::after { content: ""; position: absolute; right: 5px; bottom: 5px; width: 6px; height: 6px;
-                border-right: 1px solid #94a3b8; border-bottom: 1px solid #94a3b8; }
         `);
         root.adoptedStyleSheets = [sheet];
         root.innerHTML = `
@@ -364,6 +364,12 @@
             });
         };
         const segments = [null, null]; // 槽位固定段色，删除后复用空槽；标准视图按需增加。
+        let edgeDrag = null;
+        let bodyDrag = null;
+        const edgeRange = (seg) => {
+            const hours = isFinite(video.duration) && video.duration >= 3600;
+            return `${fmt(seg.start, hours)} – ${fmt(seg.end, hours)}`;
+        };
         const segEls = [];
         const editorRows = [];
         const invalidInputs = () => !!rows.querySelector('[aria-invalid="true"]');
@@ -371,8 +377,8 @@
             const el = document.createElement("div");
             el.className = "seg";
             el.style.background = SEG_COLORS[index % SEG_COLORS.length];
-            el.innerHTML = '<button class="edge start" type="button" role="slider"></button>' +
-                '<button class="edge end" type="button" role="slider"></button>' +
+            el.innerHTML = '<button class="edge start" type="button" role="slider"><span class="poptip" role="tooltip"></span></button>' +
+                '<button class="edge end" type="button" role="slider"><span class="poptip" role="tooltip"></span></button>' +
                 '<button class="delete" type="button">×</button>';
             const del = el.querySelector(".delete");
             del.setAttribute("aria-label", msg("wmc_deleteSegment"));
@@ -388,7 +394,21 @@
             });
             for (const key of ["start", "end"]) {
                 const edge = el.querySelector(`.edge.${key}`);
+                const pop = edge.querySelector(".poptip");
                 edge.setAttribute("aria-label", msg(key === "start" ? "wmc_segmentStart" : "wmc_segmentEnd"));
+                const openTip = () => {
+                    const seg = segments[index];
+                    if (bodyDrag || !seg || el.classList.contains("pending")) return;
+                    edge.dataset.tip = "1";
+                    pop.textContent = edgeRange(seg);
+                };
+                const closeTip = () => {
+                    if (edgeDrag === edge) return;
+                    delete edge.dataset.tip;
+                    pop.textContent = "";
+                };
+                edge.addEventListener("pointerenter", openTip);
+                edge.addEventListener("pointerleave", closeTip);
                 const adjust = (value) => {
                     const seg = segments[index];
                     if (!seg) return;
@@ -400,12 +420,16 @@
                 edge.addEventListener("pointerdown", (e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    edgeDrag = edge;
+                    openTip();
                     const rect = track.getBoundingClientRect();
                     const move = (ev) => adjust((ev.clientX - rect.left) / rect.width * video.duration);
                     const up = () => {
                         window.removeEventListener("pointermove", move);
                         window.removeEventListener("pointerup", up);
                         window.removeEventListener("pointercancel", up);
+                        if (edgeDrag === edge) edgeDrag = null;
+                        if (!edge.matches(":hover")) closeTip();
                     };
                     window.addEventListener("pointermove", move, { signal });
                     window.addEventListener("pointerup", up, { signal });
@@ -417,6 +441,52 @@
                     adjust(segments[index][key] + (e.key === "ArrowLeft" ? -1 : 1));
                 });
             }
+            const segPop = document.createElement("span");
+            segPop.className = "poptip";
+            segPop.setAttribute("role", "tooltip");
+            el.append(segPop);
+            el.addEventListener("pointerdown", (e) => {
+                if (e.target.closest(".edge, .delete")) return;
+                const seg = segments[index];
+                if (!seg || el.classList.contains("pending") || edgeDrag) return;
+                e.preventDefault();
+                e.stopPropagation();
+                const originX = e.clientX;
+                const originStart = seg.start;
+                const length = seg.end - seg.start;
+                const rect = track.getBoundingClientRect();
+                bodyDrag = el;
+                for (const edge of el.querySelectorAll(".edge")) {
+                    delete edge.dataset.tip;
+                    edge.querySelector(".poptip").textContent = "";
+                }
+                el.dataset.tip = "1";
+                segPop.textContent = edgeRange(seg);
+                const move = (ev) => {
+                    const current = segments[index];
+                    if (!current || !(rect.width > 0) || !isFinite(video.duration)) return;
+                    const next = clamp(originStart + (ev.clientX - originX) / rect.width * video.duration, 0, Math.max(0, video.duration - length));
+                    current.start = next;
+                    current.end = next + length;
+                    render();
+                };
+                const up = () => {
+                    window.removeEventListener("pointermove", move);
+                    window.removeEventListener("pointerup", up);
+                    window.removeEventListener("pointercancel", up);
+                    if (bodyDrag === el) bodyDrag = null;
+                    delete el.dataset.tip;
+                    segPop.textContent = "";
+                    const hovered = [...el.querySelectorAll(".edge")].find((edge) => edge.matches(":hover"));
+                    if (hovered && segments[index]) {
+                        hovered.dataset.tip = "1";
+                        hovered.querySelector(".poptip").textContent = edgeRange(segments[index]);
+                    }
+                };
+                window.addEventListener("pointermove", move, { signal });
+                window.addEventListener("pointerup", up, { signal });
+                window.addEventListener("pointercancel", up, { signal });
+            });
             root.querySelector(".rail").append(el);
             segEls.push(el);
 
@@ -492,11 +562,16 @@
             [host.style.height, bar.style.height, editor.style.flex] = prev;
             return height;
         };
+        let tipTarget = null;
+        let tipText = () => "";
         const placeTip = () => {
             const barRect = bar.getBoundingClientRect();
-            const btn = add.getBoundingClientRect();
-            if (!(barRect.width > 0)) return;
+            const btn = tipTarget?.getBoundingClientRect();
+            if (!btn || !(barRect.width > 0)) return;
             tip.style.left = `${btn.left + btn.width / 2 - barRect.left}px`;
+            tip.style.bottom = "auto";
+            tip.style.top = `${btn.top - barRect.top - 8}px`;
+            tip.style.transform = "translate(-50%, -100%)";
         };
         const showTip = (open) => {
             if (open && tip.textContent) {
@@ -504,10 +579,28 @@
                 bar.dataset.tip = "open";
             } else delete bar.dataset.tip;
         };
-        addWrap.addEventListener("pointerenter", () => showTip(true));
-        addWrap.addEventListener("pointerleave", () => showTip(false));
-        add.addEventListener("focus", () => showTip(true));
-        add.addEventListener("blur", () => showTip(false));
+        const bindTip = (button, text) => {
+            const open = () => {
+                tipTarget = button;
+                tipText = text;
+                tip.textContent = text();
+                showTip(true);
+            };
+            const close = () => { if (tipTarget === button) showTip(false); };
+            button.addEventListener("pointerenter", open);
+            button.addEventListener("pointerleave", close);
+            button.addEventListener("focus", open);
+            button.addEventListener("blur", close);
+        };
+        bindTip(play, () => msg("wmc_playPause"));
+        bindTip(add, () => {
+            if (capability?.selectable === false) return msg(capability.reason || "wmc_reasonUnknownSource");
+            if (!standard && start === null && segments.slice(0, 2).every(Boolean)) return msg("wmc_maxSegments");
+            return msg("wmc_addSegment");
+        });
+        bindTip(dl, () => msg("wmc_download"));
+        bindTip(view, () => msg(standard ? "wmc_compactView" : "wmc_standardView"));
+        bindTip(close, () => msg("wmc_tipClose"));
         const fit = (left, top) => {
             const size = sizes[standard ? "standard" : "compact"];
             const availableWidth = Math.max(1, window.innerWidth - 2 * MARGIN);
@@ -517,14 +610,14 @@
             if (!standard) {
                 const single = size.height < COMPACT_DOUBLE_H;
                 const floor = single ? COMPACT_SINGLE_MIN : COMPACT_MIN_W;
-                const maxW = Math.min(COMPACT_MAX_W, availableWidth);
+                const maxW = availableWidth;
                 const minW = Math.min(floor, maxW);
                 width = clamp(size.width, minW, Math.max(minW, maxW));
                 height = width < COMPACT_SINGLE_MIN || !single ? COMPACT_DOUBLE_H : COMPACT_SINGLE_H;
                 sizes.compact = { width, height };
             } else if (standardHug()) {
                 const minWidth = Math.min(610, availableWidth);
-                width = clamp(size.width, minWidth, Math.max(minWidth, Math.min(1200, availableWidth)));
+                width = clamp(size.width, minWidth, Math.max(minWidth, availableWidth));
                 host.style.width = `${width}px`;
                 height = Math.min(Math.max(measureStandardHug(), 1), availableHeight);
             } else {
@@ -565,16 +658,31 @@
                 const pending = start !== null && index === pendingSlot;
                 const block = pending ? { start, end: Math.max(start, Math.min(video.currentTime, duration)) } : segments[index];
                 segEl.hidden = !block || (!standard && index >= 2);
-                if (!block) return;
+                if (!block) {
+                    delete segEl.dataset.tip;
+                    segEl.querySelectorAll(".edge").forEach((edge) => { delete edge.dataset.tip; });
+                    segEl.querySelectorAll(".poptip").forEach((pop) => { pop.textContent = ""; });
+                    return;
+                }
                 segEl.classList.toggle("pending", pending);
                 segEl.style.left = `${pct(block.start, duration)}%`;
                 segEl.style.width = `${pct(block.end, duration) - pct(block.start, duration)}%`;
                 for (const key of ["start", "end"]) {
                     const edge = segEl.querySelector(`.edge.${key}`);
+                    const pop = edge.querySelector(".poptip");
+                    if (!segments[index] || pending) {
+                        delete edge.dataset.tip;
+                        pop.textContent = "";
+                    } else if (edge.dataset.tip) pop.textContent = edgeRange(segments[index]);
                     edge.setAttribute("aria-valuemin", key === "start" ? "0" : String(block.start));
                     edge.setAttribute("aria-valuemax", String(key === "start" ? block.end : duration));
                     edge.setAttribute("aria-valuenow", String(block[key]));
                 }
+                const segPop = segEl.querySelector(":scope > .poptip");
+                if (!segments[index] || pending) {
+                    delete segEl.dataset.tip;
+                    if (segPop) segPop.textContent = "";
+                } else if (segEl.dataset.tip && segPop) segPop.textContent = edgeRange(segments[index]);
             });
             editorRows.forEach((row, index) => {
                 const seg = segments[index];
@@ -594,8 +702,7 @@
             }));
             dl.disabled = invalidInputs();
             dl.textContent = standard ? msg("wmc_download") : "↓";
-            view.title = msg(standard ? "wmc_compactView" : "wmc_standardView");
-            view.setAttribute("aria-label", view.title);
+            view.setAttribute("aria-label", msg(standard ? "wmc_compactView" : "wmc_standardView"));
             view.textContent = standard ? "↙" : count > 2 ? `↗ ${count}` : "↗";
             view.style.width = !standard && count > 2 ? "auto" : "24px";
             add.textContent = standard ? `＋ ${msg("wmc_addSegment")}` : "＋";
@@ -603,8 +710,10 @@
             add.disabled = false;
             add.classList.toggle("is-disabled", addBlocked);
             add.setAttribute("aria-disabled", String(addBlocked));
-            const capabilityText = capability?.selectable === false ? msg(capability.reason || "wmc_reasonUnknownSource") : "";
-            tip.textContent = capabilityText || (addBlocked && capability ? msg("wmc_maxSegments") : "");
+            if (bar.dataset.tip) {
+                tip.textContent = tipText();
+                placeTip();
+            }
             add.removeAttribute("title");
             if (invalidInputs()) showHint(msg("wmc_invalidSegmentTime"));
             else if (capabilityReasons().includes(hint.textContent)) showHint("");
@@ -722,7 +831,7 @@
                     if (dy < -8 && (direction.includes("n") || horizontal)) layout = "single";
                     let width = rect.width + (direction.includes("e") ? dx : direction.includes("w") ? -dx : 0);
                     if (layout === "single") width = Math.max(width, COMPACT_SINGLE_MIN);
-                    const maxW = Math.max(COMPACT_MIN_W, Math.min(COMPACT_MAX_W, edgeMax));
+                    const maxW = Math.max(COMPACT_MIN_W, edgeMax);
                     const minW = Math.min(layout === "single" ? COMPACT_SINGLE_MIN : COMPACT_MIN_W, maxW);
                     width = clamp(width, minW, maxW);
                     const height = layout === "double" || width < COMPACT_SINGLE_MIN ? COMPACT_DOUBLE_H : COMPACT_SINGLE_H;
@@ -732,7 +841,7 @@
                     return;
                 }
                 const minWidth = Math.min(610, Math.max(1, window.innerWidth - 2 * MARGIN));
-                const maxWidth = Math.max(minWidth, Math.min(1200, edgeMax));
+                const maxWidth = Math.max(minWidth, edgeMax);
                 const width = clamp(rect.width + (horizontal ? (direction.includes("e") ? dx : -dx) : 0), minWidth, maxWidth);
                 if (standardHug()) {
                     sizes.standard.width = width;
