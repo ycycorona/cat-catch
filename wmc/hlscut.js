@@ -190,8 +190,46 @@
             });
     }
 
+    function stripPicture(bytes) {
+        if (!bytes || bytes.length < 8) return bytes;
+        var start = -1;
+        if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) {
+            for (var i = 0; i < bytes.length - 7; i++) {
+                if (bytes[i] === 73 && bytes[i + 1] === 69 && bytes[i + 2] === 78 && bytes[i + 3] === 68) {
+                    start = i + 8;
+                    break;
+                }
+            }
+        } else if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+            for (var j = 0; j < bytes.length - 1; j++) {
+                if (bytes[j] === 0xff && bytes[j + 1] === 0xd9) {
+                    start = j + 2;
+                    break;
+                }
+            }
+        }
+        return start > 0 && start < bytes.length ? bytes.subarray(start) : bytes;
+    }
+
+    function remuxTs(parts) {
+        if (typeof muxjs === "undefined" || !muxjs.mp4 || !muxjs.mp4.Transmuxer) return null;
+        var transmuxer = new muxjs.mp4.Transmuxer({ keepOriginalTimestamps: false, remux: true });
+        var init = null;
+        var chunks = [];
+        transmuxer.on("data", function (segment) {
+            if (!init && segment.initSegment) init = segment.initSegment;
+            if (segment.data && segment.data.byteLength) chunks.push(segment.data);
+        });
+        for (var i = 0; i < parts.length; i++) {
+            transmuxer.push(parts[i]);
+            transmuxer.flush();
+        }
+        if (!init || !chunks.length) return null;
+        return new Blob([init].concat(chunks), { type: "video/mp4" });
+    }
+
     async function segmentBytes(seg, keys, signal) {
-        var bytes = await fetchBytes(seg.url, signal);
+        var bytes = stripPicture(await fetchBytes(seg.url, signal));
         if (!seg.key) return bytes;
         if (seg.key.method !== "AES-128") throw CutError("不支持的加密方式：" + seg.key.method);
         if (!seg.key.uri) throw CutError("加密分片缺少密钥 URI");
@@ -377,6 +415,10 @@
         await Promise.all(workers);
         if (info.media.map) rebaseFmp4(parts[0], out);
         for (var j = 0; j < out.length; j++) parts.push(out[j]);
+        var remuxed = info.media.map ? null : remuxTs(parts);
+        if (remuxed) {
+            return { blob: remuxed, ext: "mp4", actualStart: actualStart, actualEnd: actualEnd };
+        }
 
         return {
             blob: new Blob(parts, { type: info.media.map ? "video/mp4" : "video/mp2t" }),
