@@ -926,20 +926,21 @@
                 let last = t, moved = false;
                 return {
                     move(ev) {
-                        moved = true;
+                        if (Math.abs(ev.clientX - e.clientX) > 3) moved = true;
                         windowHold = true;
                         const now = at(ev), delta = now - last; last = now; const v = ensureView();
                         setWindow(v.s + delta, v.e + delta);
                     },
-                    // 全览时窗口铺满整条轴、也拖不动，点它等于点轴。
-                    end(ev) { windowHold = false; if (!moved && ovWin.classList.contains("full")) focusOverview(at(ev)); },
+                    // 窗口框也定位：全览时它铺满整条轴，放大时它是轴上最顺手的落点。
+                    end(ev) { windowHold = false; if (!moved) focusOverview(at(ev)); },
                 };
             }
             let moved = false;
             return {
                 move(ev) {
                     const now = at(ev);
-                    if (Math.abs(now - t) > video.duration * 0.003) {
+                    // 3px 内算点击：指针抖动不该把单击变成拉窗口。
+                    if (Math.abs(ev.clientX - e.clientX) > 3) {
                         moved = true;
                         windowHold = true;
                         setWindow(Math.min(t, now), Math.max(t, now));
@@ -966,7 +967,7 @@
                 window.removeEventListener("pointerup", up);
                 window.removeEventListener("pointercancel", up);
                 overviewScrub = false;
-                if (!moved) return;
+                if (!moved) { focusOverview(overviewTime(ev.clientX)); return; }
                 video.currentTime = overviewTime(ev.clientX);
                 centerWindow(video.currentTime);
             };
