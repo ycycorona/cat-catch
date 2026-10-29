@@ -41,13 +41,82 @@
         await patch(id, { progress });
     };
 
+    // 主名按 UTF-8 字节封顶。200 留出 ".mp4.crdownload"，避免 Chrome 临时名顶破 255 字节。
+    const FILE_NAME_BUDGET = 200;
+    const utf8len = (s) => new TextEncoder().encode(s).length;
+    const WINDOWS_DEVICE = /^(con|prn|aux|nul|com[1-9]|lpt[1-9]|clock\$)$/i;
+
+    function cleanTitle(text) {
+        let s = String(text || "");
+        if (typeof s.toWellFormed === "function") s = s.toWellFormed();
+        let kept = "";
+        for (const ch of s) {
+            const cp = ch.codePointAt(0);
+            if ((cp >= 0xfdd0 && cp <= 0xfdef) || (cp & 0xfffe) === 0xfffe) continue;
+            kept += ch;
+        }
+        return kept
+            .replace(/\p{Cc}/gu, " ")
+            .replace(/\p{Cf}/gu, "")
+            .replace(/["*/:<>?\\|]/g, "-")
+            .replace(/\p{White_Space}+/gu, " ");
+    }
+
+    function trimEnds(text) {
+        return text.replace(/^[\p{White_Space}.~]+|[\p{White_Space}.~]+$/gu, "");
+    }
+
+    function fitTitle(title, maxBytes) {
+        title = trimEnds(title);
+        if (!title || maxBytes <= 0) return "";
+        if (utf8len(title) <= maxBytes) return title;
+        const parts = [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(title)].map((g) => g.segment);
+        const mark = utf8len("…");
+        if (maxBytes < mark) return "";
+        let head = 0;
+        let tail = parts.length;
+        let headBytes = 0;
+        let tailBytes = 0;
+        while (head < tail) {
+            const takeHead = headBytes <= tailBytes;
+            const piece = parts[takeHead ? head : tail - 1];
+            if (headBytes + tailBytes + utf8len(piece) + mark > maxBytes) break;
+            if (takeHead) { head += 1; headBytes += utf8len(piece); }
+            else { tail -= 1; tailBytes += utf8len(piece); }
+        }
+        const left = trimEnds(parts.slice(0, head).join(""));
+        const right = trimEnds(parts.slice(tail).join(""));
+        if (left && right) return `${left}…${right}`;
+        return left || right;
+    }
+
+    function fileClock(sec) {
+        const s = Math.max(0, Math.floor(Number(sec) || 0));
+        const pad = (n) => String(n).padStart(2, "0");
+        return `${pad(Math.floor(s / 3600))}.${pad(Math.floor((s % 3600) / 60))}.${pad(s % 60)}`;
+    }
+
     function fileNameFor(job, out) {
-        const base = String(job.pageTitle || "clip")
-            .replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_")
-            .replace(/\s+/g, " ")
-            .trim()
-            .slice(0, 80) || "clip";
-        return `${base}_${fmt(out.actualStart)}-${fmt(out.actualEnd)}.${out.ext || "mp4"}`;
+        const ext = String(out.ext || "mp4").replace(/[^a-z0-9]/gi, "") || "mp4";
+        const span = `${fileClock(out.actualStart)}-${fileClock(out.actualEnd)}`;
+        const room = FILE_NAME_BUDGET - utf8len(span) - 1;
+        const title = fitTitle(cleanTitle(job.pageTitle), room);
+        let stem = title ? `${title} ${span}` : span;
+        if (WINDOWS_DEVICE.test(stem.split(".")[0])) stem = `_${stem}`;
+        return `${stem}.${ext}`;
+    }
+
+    async function saveDownload(url, fileName) {
+        try {
+            await chrome.downloads.download({ url, filename: fileName, saveAs: false });
+            return fileName;
+        } catch (e) {
+            if (!/invalid filename/i.test(String((e && e.message) || e))) throw e;
+            const time = String(fileName).match(/\d{2}(?:\.\d{2}){2}-\d{2}(?:\.\d{2}){2}/);
+            const safe = `${time ? time[0] : "clip"}.mp4`;
+            await chrome.downloads.download({ url, filename: safe, saveAs: false });
+            return safe;
+        }
     }
 
     async function run(job) {
@@ -75,8 +144,7 @@
                     onProgress,
                 });
             const blobUrl = URL.createObjectURL(out.blob);
-            const fileName = fileNameFor(job, out);
-            await chrome.downloads.download({ url: blobUrl, filename: fileName, saveAs: false });
+            const fileName = await saveDownload(blobUrl, fileNameFor(job, out));
             setTimeout(() => URL.revokeObjectURL(blobUrl), 30000); // shortcut: 留时间给下载器读 blob，长任务可能堆积内存
             await patch(job.id, {
                 status: "done",
