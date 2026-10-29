@@ -1231,6 +1231,12 @@
   "wmc_keyPlay": {
     "message": "Play / pause"
   },
+  "wmc_keyMarkIn": {
+    "message": "Set the in point, or move it to the current time"
+  },
+  "wmc_keyMarkOut": {
+    "message": "Set the out point. It must be after the in point"
+  },
   "wmc_keyZoomIn": {
     "message": "Zoom in on the detail window, around its midpoint"
   },

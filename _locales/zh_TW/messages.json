@@ -1087,6 +1087,12 @@
   "wmc_keyPlay": {
     "message": "播放 / 暫停"
   },
+  "wmc_keyMarkIn": {
+    "message": "在目前時間設入點；再按則把入點挪到目前時間"
+  },
+  "wmc_keyMarkOut": {
+    "message": "在目前時間設出點，必須晚於入點"
+  },
   "wmc_keyZoomIn": {
     "message": "放大細節窗口，圍繞中點縮短起迄"
   },

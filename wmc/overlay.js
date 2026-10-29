@@ -365,6 +365,8 @@
                     <h2></h2>
                     <dl>
                         <div><dt>空格</dt><dd class="key-play"></dd></div>
+                        <div><dt>I</dt><dd class="key-mark-in"></dd></div>
+                        <div><dt>O</dt><dd class="key-mark-out"></dd></div>
                         <div><dt>+ / =</dt><dd class="key-in"></dd></div>
                         <div><dt>−</dt><dd class="key-out"></dd></div>
                         <div><dt>← / →</dt><dd class="key-step"></dd></div>
@@ -431,6 +433,8 @@
         hintBtn.setAttribute("aria-label", msg("wmc_shortcuts"));
         keys.querySelector("h2").textContent = msg("wmc_shortcuts");
         keys.querySelector(".key-play").textContent = msg("wmc_keyPlay");
+        keys.querySelector(".key-mark-in").textContent = msg("wmc_keyMarkIn");
+        keys.querySelector(".key-mark-out").textContent = msg("wmc_keyMarkOut");
         keys.querySelector(".key-in").textContent = msg("wmc_keyZoomIn");
         keys.querySelector(".key-out").textContent = msg("wmc_keyZoomOut");
         keys.querySelector(".key-step").textContent = msg("wmc_keyPrevNext");
@@ -990,8 +994,9 @@
         for (const type of ["gesturestart", "gesturechange"]) {
             for (const el of [plot, ov]) el.addEventListener(type, (ev) => ev.preventDefault(), { passive: false, signal });
         }
-        axes.addEventListener("pointerdown", (ev) => {
-            if (!ev.target.closest("input, select, textarea")) bar.focus({ preventScroll: true });
+        bar.addEventListener("pointerdown", (ev) => {
+            if (ev.target.closest("input, select, textarea, [contenteditable='true']")) return;
+            bar.focus({ preventScroll: true });
         });
         const toggleKeys = (force) => {
             const open = force ?? keys.hidden;
@@ -1437,7 +1442,10 @@
             if (docked) place();
             else fit(rect.left, rect.top);
         };
-        view.addEventListener("click", () => setView(!standard));
+        view.addEventListener("click", () => {
+            setView(!standard);
+            bar.focus({ preventScroll: true });
+        });
         studioBtn.addEventListener("click", () => { if (studio) exitStudio(); else enterStudio(); });
 
         play.addEventListener("click", () => {
@@ -1445,12 +1453,58 @@
             else video.pause();
         });
 
+        // 标准视图的 ＋ 仍是 15 秒整段；待定入点占着的空槽留给 O。
+        const takeSlot = (skipPending) => {
+            const limit = standard ? segments.length : 2;
+            for (let i = 0; i < limit; i++) {
+                if (skipPending && start !== null && i === pendingSlot) continue;
+                if (!segments[i]) return i;
+            }
+            if (!standard) return -1;
+            const index = segments.length;
+            segments.push(null);
+            createSlot(index);
+            return index;
+        };
+        const markIn = () => {
+            if (blocked()) {
+                showHint(msg(capability?.reason || "wmc_reasonUnknownSource"));
+                return;
+            }
+            if (start !== null) {
+                start = clamp(video.currentTime, 0, video.duration);
+                showHint("");
+                render();
+                return;
+            }
+            const index = takeSlot(false);
+            if (index < 0) {
+                showHint(msg("wmc_maxSegments"));
+                return;
+            }
+            pendingSlot = index;
+            start = clamp(video.currentTime, 0, video.duration);
+            showHint("");
+            render();
+        };
+        const markOut = () => {
+            if (blocked()) {
+                showHint(msg(capability?.reason || "wmc_reasonUnknownSource"));
+                return;
+            }
+            const now = clamp(video.currentTime, 0, video.duration);
+            if (start === null || !(now > start) || segments[pendingSlot]) return;
+            segments[pendingSlot] = { start, end: now };
+            start = null;
+            showHint("");
+            if (standard) rows.scrollTop = rows.scrollHeight;
+            render();
+        };
         add.addEventListener("click", () => {
             if (add.getAttribute("aria-disabled") === "true") return;
             const now = video.currentTime;
-            if (standard && start === null) {
-                let index = segments.findIndex((seg) => !seg);
-                if (index < 0) { index = segments.length; segments.push(null); createSlot(index); }
+            if (standard) {
+                const index = takeSlot(true);
                 const begin = Math.min(Math.max(0, now), Math.max(0, video.duration - .001));
                 segments[index] = { start: begin, end: Math.min(video.duration, begin + 15) };
                 showHint("");
@@ -1642,7 +1696,22 @@
         }, { signal });
 
         const typingTarget = (node) => node instanceof Element && !!node.closest("input, select, textarea, [contenteditable='true']");
+        const overlayFocused = () => {
+            const active = root.activeElement;
+            return !!active && (active === bar || bar.contains(active));
+        };
+        // 单字母只在工作室或浮窗自己拿到焦点时截下，避免抢走网页快捷键。
         window.addEventListener("keydown", (ev) => {
+            const marking = !ev.repeat && !ev.isComposing && !ev.ctrlKey && !ev.metaKey && !ev.altKey && !ev.shiftKey &&
+                (ev.code === "KeyI" || ev.code === "KeyO");
+            if (marking && (studio || overlayFocused())) {
+                if (typingTarget(root.activeElement) || typingTarget(ev.target)) return;
+                ev.preventDefault();
+                ev.stopPropagation();
+                if (ev.code === "KeyI") markIn();
+                else markOut();
+                return;
+            }
             if (!studio || ev.repeat) return;
             if (ev.key === "Escape") {
                 if (typingTarget(root.activeElement) || typingTarget(ev.target)) return;

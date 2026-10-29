@@ -1231,6 +1231,12 @@
   "wmc_keyPlay": {
     "message": "播放 / 暂停"
   },
+  "wmc_keyMarkIn": {
+    "message": "在当前时间设入点；再按则把入点挪到当前时间"
+  },
+  "wmc_keyMarkOut": {
+    "message": "在当前时间设出点，必须晚于入点"
+  },
   "wmc_keyZoomIn": {
     "message": "放大细节窗口，围绕中点缩短起止"
   },
