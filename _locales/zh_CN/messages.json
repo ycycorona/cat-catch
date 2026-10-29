@@ -1201,5 +1201,50 @@
   },
   "wmc_reasonUnsupported": {
     "message": "此媒体不支持选段"
+  },
+  "wmc_overview": {
+    "message": "总览"
+  },
+  "wmc_detail": {
+    "message": "细节"
+  },
+  "wmc_zoomOut": {
+    "message": "缩小"
+  },
+  "wmc_zoomIn": {
+    "message": "放大"
+  },
+  "wmc_fullView": {
+    "message": "全览"
+  },
+  "wmc_shortcuts": {
+    "message": "快捷键"
+  },
+  "wmc_keyPlay": {
+    "message": "播放 / 暂停"
+  },
+  "wmc_keyZoomIn": {
+    "message": "放大细节窗口，围绕中点缩短起止"
+  },
+  "wmc_keyZoomOut": {
+    "message": "缩小细节窗口，围绕中点拉长起止"
+  },
+  "wmc_keyPrevNext": {
+    "message": "上一选段 / 下一选段，窗口移过去，播放头不动"
+  },
+  "wmc_keyHelp": {
+    "message": "打开或关闭这个说明"
+  },
+  "wmc_keyPinch": {
+    "message": "双指捏合，或 Ctrl / ⌘ + 滚轮，缩放"
+  },
+  "wmc_keyPan": {
+    "message": "双指左右滑，或 Shift + 滚轮"
+  },
+  "wmc_keyScroll": {
+    "message": "双指上下滑，滚动选段列表"
+  },
+  "wmc_studioMode": {
+    "message": "工作室模式"
   }
 }

@@ -1057,5 +1057,50 @@
   },
   "fileName": {
     "message": "Tên tệp"
+  },
+  "wmc_overview": {
+    "message": "Overview"
+  },
+  "wmc_detail": {
+    "message": "Detail"
+  },
+  "wmc_zoomOut": {
+    "message": "Zoom out"
+  },
+  "wmc_zoomIn": {
+    "message": "Zoom in"
+  },
+  "wmc_fullView": {
+    "message": "Entire"
+  },
+  "wmc_shortcuts": {
+    "message": "Shortcuts"
+  },
+  "wmc_keyPlay": {
+    "message": "Play / pause"
+  },
+  "wmc_keyZoomIn": {
+    "message": "Zoom in on the detail window, around its midpoint"
+  },
+  "wmc_keyZoomOut": {
+    "message": "Zoom out the detail window, around its midpoint"
+  },
+  "wmc_keyPrevNext": {
+    "message": "Previous / next clip. The window follows; the playhead stays"
+  },
+  "wmc_keyHelp": {
+    "message": "Open or close this guide"
+  },
+  "wmc_keyPinch": {
+    "message": "Pinch, or Ctrl / ⌘ + scroll, to zoom"
+  },
+  "wmc_keyPan": {
+    "message": "Two-finger horizontal scroll, or Shift + scroll"
+  },
+  "wmc_keyScroll": {
+    "message": "Two-finger vertical scroll moves the clip list"
+  },
+  "wmc_studioMode": {
+    "message": "Chế độ studio"
   }
 }
