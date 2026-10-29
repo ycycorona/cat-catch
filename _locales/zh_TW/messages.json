@@ -1073,6 +1073,14 @@
   "wmc_fullView": {
     "message": "全覽"
   },
+  "wmc_spanWindow": {
+    "message": "細節視窗改為 $MINUTES$ 分鐘，圍繞中點",
+    "placeholders": {
+      "minutes": {
+        "content": "$1"
+      }
+    }
+  },
   "wmc_shortcuts": {
     "message": "快捷鍵"
   },

@@ -1217,6 +1217,14 @@
   "wmc_fullView": {
     "message": "Entire"
   },
+  "wmc_spanWindow": {
+    "message": "Set the detail window to $MINUTES$ minutes, around its midpoint",
+    "placeholders": {
+      "minutes": {
+        "content": "$1"
+      }
+    }
+  },
   "wmc_shortcuts": {
     "message": "Shortcuts"
   },

@@ -354,6 +354,9 @@
                 <span class="zooms">
                 <button class="zoom-out" type="button">−</button>
                 <button class="zoom-in" type="button">+</button>
+                <button class="zoom-span" type="button" data-span="300">5 min</button>
+                <button class="zoom-span" type="button" data-span="900">15 min</button>
+                <button class="zoom-span" type="button" data-span="1800">30 min</button>
                 <button class="zoom-full" type="button"></button>
                 </span>
                 <button class="hint-btn" type="button" aria-expanded="false">!</button>
@@ -418,6 +421,12 @@
         root.querySelector(".zoom-in").setAttribute("aria-label", msg("wmc_zoomIn"));
         root.querySelector(".zoom-full").textContent = msg("wmc_fullView");
         root.querySelector(".zoom-full").title = msg("wmc_fullView");
+        const spanButtons = [...root.querySelectorAll(".zoom-span")];
+        for (const button of spanButtons) {
+            const label = chrome.i18n.getMessage("wmc_spanWindow", String(Number(button.dataset.span) / 60));
+            button.title = label;
+            button.setAttribute("aria-label", label);
+        }
         hintBtn.title = msg("wmc_shortcuts");
         hintBtn.setAttribute("aria-label", msg("wmc_shortcuts"));
         keys.querySelector("h2").textContent = msg("wmc_shortcuts");
@@ -997,6 +1006,9 @@
         });
         root.querySelector(".zoom-in").addEventListener("click", () => zoomWindow(0.5));
         root.querySelector(".zoom-out").addEventListener("click", () => zoomWindow(2));
+        for (const button of spanButtons) {
+            button.addEventListener("click", () => setSpan(Number(button.dataset.span)));
+        }
         root.querySelector(".zoom-full").addEventListener("click", () => setWindow(0, video.duration || 0));
         const showSegment = (dir) => {
             const indexes = segments.map((seg, i) => seg ? i : -1).filter((i) => i >= 0);
@@ -1306,6 +1318,10 @@
                 }
                 dhead.style.left = `${(video.currentTime - v.s) / span * 100}%`;
                 dhead.hidden = video.currentTime < v.s || video.currentTime > v.e;
+            }
+            for (const button of spanButtons) {
+                const on = v && Math.abs((v.e - v.s) - Number(button.dataset.span)) < 0.5;
+                button.setAttribute("aria-pressed", on ? "true" : "false");
             }
             ovMarkEls.forEach((mark, index) => {
                 const seg = segments[index];
