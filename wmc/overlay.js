@@ -231,7 +231,7 @@
             .standard .axes { display: block; margin-top: 4px; }
             .standard .zooms, .standard .hint-btn { display: inline-flex; align-items: center; }
             .zooms { gap: 2px; flex: none; }
-            .axis { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 6px; align-items: center; }
+            .axis { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 6px; align-items: end; }
             .axis + .axis { margin-top: 4px; }
             .lab { color: #9ca3af; font-size: 11px; line-height: 14px; height: 14px; white-space: nowrap; }
             .axis.detail { align-items: end; }
@@ -239,19 +239,23 @@
             .range { margin: 0 0 2px; color: #9ca3af; font: 10px/12px ui-monospace, Consolas, monospace;
                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             .ov, .plot { position: relative; border-radius: 3px; background: #1f2937; overflow: hidden; touch-action: none; }
-            .ov { height: 14px; }
+            /* [WMC] 只裁切轨道内容，给悬浮指针留空间，并让两端的指针保持完整。 */
+            .ov { height: 14px; padding-top: 7px; background-clip: content-box; overflow: visible; }
+            .plot { background: none; overflow: visible; }
+            .ov-clip, .lane-clip { position: absolute; inset: 7px 0 0; overflow: hidden; border-radius: 3px; }
             .ov-shade { position: absolute; top: 0; bottom: 0; background: rgba(0,0,0,.5); pointer-events: none; }
             .ov-win { position: absolute; top: 1px; bottom: 1px; border: 1px solid #93c5fd; border-radius: 2px; background: rgba(147,197,253,.2); cursor: grab; }
             .ov-win .grip { position: absolute; top: -2px; bottom: -2px; width: 8px; cursor: ew-resize; }
             .ov-win .grip.l { left: -4px; } .ov-win .grip.r { right: -4px; }
             .omark { position: absolute; top: 0; bottom: 0; border-radius: 2px; pointer-events: none; }
-            .ohead, .dhead { position: absolute; top: 0; bottom: 0; width: 1.5px; background: #f9fafb; z-index: 3; pointer-events: none; }
-            .ohead::before, .dhead::before { content: ""; position: absolute; left: -4px; top: 0; border: 4px solid transparent; border-top-color: #38bdf8; }
+            .ohead, .dhead { position: absolute; top: 7px; bottom: 0; width: 2px; transform: translateX(-50%); background: #80d7ff; z-index: 3; pointer-events: none; }
+            .ohead::before, .dhead::before { content: ""; position: absolute; left: 50%; top: -7px; transform: translateX(-50%);
+                width: 10px; height: 7px; background: #80d7ff; clip-path: polygon(0 0, 100% 0, 100% 2px, 50% 100%, 0 2px); }
             .dhead, .ohead { pointer-events: auto; cursor: ew-resize; }
-            .dhead::after, .ohead::after { content: ""; position: absolute; left: -8px; top: 0; bottom: 0; width: 18px; }
-            .ruler { position: relative; height: 14px; overflow: hidden; border-bottom: 1px solid rgba(255,255,255,.08); touch-action: none; }
+            .dhead::after, .ohead::after { content: ""; position: absolute; left: 50%; transform: translateX(-50%); top: -7px; bottom: 0; width: 18px; }
+            .ruler { position: relative; height: 14px; overflow: hidden; background: #1f2937; border-bottom: 1px solid rgba(255,255,255,.08); touch-action: none; }
             .ruler span { position: absolute; top: 0; color: #9ca3af; font: 10px/14px ui-monospace, Consolas, monospace; white-space: nowrap; }
-            .lane { position: relative; height: 26px; overflow: hidden; touch-action: none; }
+            .lane { position: relative; height: 26px; padding-top: 7px; background: #1f2937; background-clip: content-box; touch-action: none; }
             .dseg { position: absolute; top: 5px; height: 16px; border-radius: 3px; touch-action: none; cursor: grab; }
             .dseg.pending { cursor: default; }
             .dseg .h { position: absolute; top: 0; bottom: 0; width: 6px; background: rgba(255,255,255,.72); cursor: ew-resize; z-index: 2; }
@@ -384,8 +388,8 @@
                 <button class="close" type="button">×</button>
                 </div>
                 <div class="axes">
-                    <div class="axis"><span class="lab ov-lab"></span><div class="ov"><div class="ov-shade left"></div><div class="ov-shade right"></div><div class="ov-marks"></div><div class="ov-win"><i class="grip l" data-edge="l"></i><i class="grip r" data-edge="r"></i></div><div class="ohead"></div></div></div>
-                    <div class="axis detail"><span class="lab dt-lab"></span><div><div class="range"></div><div class="plot"><div class="ruler"></div><div class="lane"><div class="dhead"></div></div></div></div></div>
+                    <div class="axis"><span class="lab ov-lab"></span><div class="ov"><div class="ov-clip"><div class="ov-shade left"></div><div class="ov-shade right"></div><div class="ov-marks"></div><div class="ov-win"><i class="grip l" data-edge="l"></i><i class="grip r" data-edge="r"></i></div></div><div class="ohead"></div></div></div>
+                    <div class="axis detail"><span class="lab dt-lab"></span><div><div class="range"></div><div class="plot"><div class="ruler"></div><div class="lane"><div class="lane-clip"></div><div class="dhead"></div></div></div></div></div>
                 </div>
                 <div class="editor"><div class="editor-header"><span></span><span class="start-label"></span>
                     <span class="end-label"></span><span class="duration-label"></span><span></span></div><div class="rows"></div></div>
@@ -745,7 +749,7 @@
             detail.style.setProperty("--seg", segColor);
             detail.innerHTML = '<i class="h s" data-edge="start"></i><i class="h e" data-edge="end"></i>';
             detail.hidden = true;
-            lane.append(detail);
+            lane.querySelector(".lane-clip").append(detail);
             detailSegs[index] = detail;
             const mark = document.createElement("div");
             mark.className = "omark";
