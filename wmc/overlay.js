@@ -244,9 +244,11 @@
             .plot { background: none; overflow: visible; }
             .ov-clip, .lane-clip { position: absolute; inset: 7px 0 0; overflow: hidden; border-radius: 3px; }
             .ov-shade { position: absolute; top: 0; bottom: 0; background: rgba(0,0,0,.5); pointer-events: none; }
-            .ov-win { position: absolute; top: 1px; bottom: 1px; border: 1px solid #93c5fd; border-radius: 2px; background: rgba(147,197,253,.2); cursor: grab; }
+            .ov-win { position: absolute; top: 1px; bottom: 1px; border: 1px solid #93c5fd; border-radius: 2px; background: rgba(147,197,253,.2); cursor: default; }
             .ov-win .grip { position: absolute; top: -2px; bottom: -2px; width: 8px; cursor: ew-resize; }
             .ov-win .grip.l { left: -4px; } .ov-win .grip.r { right: -4px; }
+            /* [WMC] 只在按住窗口框、且窗口还能拖动时出手型；全览拖不动，保持箭头。 */
+            .ov-win:active:not(.full) { cursor: grabbing; }
             .omark { position: absolute; top: 0; bottom: 0; border-radius: 2px; pointer-events: none; }
             .ohead, .dhead { position: absolute; top: 7px; bottom: 0; width: 2px; transform: translateX(-50%); background: #80d7ff; z-index: 3; pointer-events: none; }
             .ohead::before, .dhead::before { content: ""; position: absolute; left: 50%; top: -7px; transform: translateX(-50%);
@@ -921,14 +923,16 @@
                 end() { windowHold = false; },
             };
             if (e.target === ovWin || e.target.classList.contains("ov-win")) {
-                let last = t;
+                let last = t, moved = false;
                 return {
                     move(ev) {
+                        moved = true;
                         windowHold = true;
                         const now = at(ev), delta = now - last; last = now; const v = ensureView();
                         setWindow(v.s + delta, v.e + delta);
                     },
-                    end() { windowHold = false; },
+                    // 全览时窗口铺满整条轴、也拖不动，点它等于点轴。
+                    end(ev) { windowHold = false; if (!moved && ovWin.classList.contains("full")) focusOverview(at(ev)); },
                 };
             }
             let moved = false;
@@ -941,7 +945,7 @@
                         setWindow(Math.min(t, now), Math.max(t, now));
                     }
                 },
-                end(ev) { windowHold = false; if (!moved) centerWindow(at(ev)); }
+                end(ev) { windowHold = false; if (!moved) focusOverview(at(ev)); }
             };
         });
         ohead.addEventListener("pointerdown", (e) => {
@@ -969,11 +973,6 @@
             window.addEventListener("pointermove", move, { signal });
             window.addEventListener("pointerup", up, { signal });
             window.addEventListener("pointercancel", up, { signal });
-        });
-        ov.addEventListener("dblclick", (e) => {
-            if (e.target.closest(".grip") || !(video.duration > 0)) return;
-            e.preventDefault();
-            focusOverview(overviewTime(e.clientX));
         });
         const axisWheel = (timeAt) => (ev) => {
             const width = ev.currentTarget.getBoundingClientRect().width || 1;
@@ -1313,6 +1312,7 @@
                 rightShade.style.width = `${Math.max(0, duration - v.e) / duration * 100}%`;
                 ovWin.style.left = `${v.s / duration * 100}%`;
                 ovWin.style.width = `${span / duration * 100}%`;
+                ovWin.classList.toggle("full", span >= duration - 0.5);
                 ohead.style.left = `${pct(video.currentTime, duration)}%`;
                 rangeLabel.textContent = `${fmt(v.s, hours)} – ${fmt(v.e, hours)}`;
                 const step = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600].find((n) => n >= span / 6) || 3600;
