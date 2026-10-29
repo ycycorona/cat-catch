@@ -169,52 +169,174 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
     });
 });
 
-// AC-11：交接提示与下载任务分开保存，不伪造下载进度或“已完成”。
-// MP4 交给上游下载页；HLS（blob: 源）交给上游 m3u8 解析页，仍开在右邻后台标签并自动关闭。
-async function wmcHandoff(message, tab, frameId) {
-    const media = await wmcResolveMedia(tab.id, message.url, message.duration, { frameId });
-    let url;
-    if (/^https?:\/\//i.test(message.url)) {
-        const item = wmcCachedMedia(tab.id, message.url);
-        url = new URL(chrome.runtime.getURL("downloader.html"));
-        url.searchParams.set("autoClose", "1");
-        if (item?.requestId) url.searchParams.set("requestId", item.requestId);
-        else url.searchParams.set("JSON", JSON.stringify({
-            url: message.url,
-            requestId: crypto.randomUUID(),
-            title: String(message.pageTitle || tab.title || ""),
-            requestHeaders: item?.requestHeaders || {},
-            initiator: item?.initiator || message.pageUrl || tab.url,
-        }));
-    } else {
-        const hlsUrl = media.hlsUrl;
-        if (!hlsUrl) return { ok: false, error: "no-source" };
-        const item = wmcCachedMedia(tab.id, hlsUrl);
-        url = new URL(chrome.runtime.getURL("m3u8.html"));
-        url.searchParams.set("url", hlsUrl);
-        url.searchParams.set("tabid", String(tab.id));
-        url.searchParams.set("autoDown", "1");
-        url.searchParams.set("autoClose", "1");
-        url.searchParams.set("title", String(message.pageTitle || tab.title || ""));
-        if (item?.requestHeaders) url.searchParams.set("requestHeaders", JSON.stringify(item.requestHeaders));
-        const initiator = item?.initiator || message.pageUrl || tab.url;
-        if (initiator) url.searchParams.set("initiator", initiator);
+// 整段下载不自建管线：把上游已经嗅探到的资源交给它自己的下载页 / 解析页。
+function wmcSameResource(a, b) {
+    try {
+        const left = new URL(a);
+        const right = new URL(b);
+        return left.origin === right.origin && left.pathname === right.pathname;
+    } catch (e) {
+        return a === b;
     }
-    await chrome.tabs.create({ url: url.href, windowId: tab.windowId, index: tab.index + 1, active: false });
-    await navigator.locks.request("wmcHandoffs", async () => {
-        const { wmcHandoffs = [] } = await chrome.storage.session.get("wmcHandoffs");
-        wmcHandoffs.push({
-            id: crypto.randomUUID(),
-            createdAt: Date.now(),
-            pageUrl: String(message.pageUrl || tab.url || ""),
-            pageTitle: String(message.pageTitle || tab.title || ""),
-            kind: media.kind || "mp4",
-            openedUrl: url.href,
+}
+
+function wmcParsing(item) {
+    const type = item.type || "";
+    if (item.ext === "m3u8" || item.ext === "m3u" || /mpegurl|octet-stream-m3u8/.test(type)) return "m3u8";
+    if (item.ext === "mpd" || type === "application/dash+xml") return "mpd";
+    return "";
+}
+
+async function wmcPlayerUrls(tabId, frameId) {
+    try {
+        const [probe] = await chrome.scripting.executeScript({
+            target: { tabId, frameIds: [frameId ?? 0] },
+            world: "MAIN",
+            func: () => {
+                const urls = [];
+                const push = (value) => {
+                    if (typeof value === "string" && /^https?:/i.test(value)) urls.push(value);
+                };
+                try {
+                    const info = window.__playinfo__?.data;
+                    const dash = info?.dash;
+                    if (dash) {
+                        const video = (dash.video || []).find((item) => item.id === info.quality) || (dash.video || [])[0];
+                        push(video?.baseUrl || video?.base_url);
+                        push((dash.audio || [])[0]?.baseUrl || (dash.audio || [])[0]?.base_url);
+                    }
+                } catch (e) { /* 页面没有这份播放器数据 */ }
+                try {
+                    const player = window.player?.__core?.()?.player;
+                    for (const kind of ["video", "audio"]) {
+                        const tracks = player?.getTracksFor?.(kind) || [];
+                        const selected = tracks.find((track) => track.selected) || tracks[0];
+                        push(selected?.baseUrl || selected?.url);
+                    }
+                } catch (e) { /* 播放器没有当前轨地址 */ }
+                return [...new Set(urls)];
+            },
         });
-        await chrome.storage.session.set({ wmcHandoffs });
+        return Array.isArray(probe?.result) ? probe.result : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function wmcSniffedHls(tabId, url) {
+    if (!/^blob:/i.test(url || "")) return null;
+    const picked = wmcPickM3u8((self.cacheData && self.cacheData[tabId]) || []);
+    if (!picked) return null;
+    return {
+        selectable: true,
+        kind: "hls",
+        hlsUrl: picked.url,
+        requestHeaders: picked.requestHeaders || null,
+        initiator: picked.initiator || null,
+    };
+}
+
+async function wmcMediaFor(tabId, url, duration, flags) {
+    const media = await wmcResolveMedia(tabId, url, duration, flags);
+    if (media.selectable) return media;
+    return wmcSniffedHls(tabId, url) || media;
+}
+
+function wmcMatchCache(tabId, urls) {
+    const list = (self.cacheData && self.cacheData[tabId]) || [];
+    const found = [];
+    for (const url of urls) {
+        const item = list.find((entry) => entry.url === url) || list.find((entry) => wmcSameResource(entry.url, url));
+        if (item && !found.some((entry) => entry.requestId === item.requestId)) found.push(item);
+    }
+    return found;
+}
+
+function wmcPickM3u8(items) {
+    const lists = items.filter((item) => wmcParsing(item) === "m3u8");
+    const media = lists.filter((item) => /\/video\.m3u8(\?|$)/i.test(item.url));
+    const pool = media.length ? media : lists.filter((item) => !/\/playlist\.m3u8(\?|$)/i.test(item.url));
+    const choice = (pool.length ? pool : lists);
+    return choice.length ? choice[choice.length - 1] : null;
+}
+
+async function wmcOpenUpstream(tab, page) {
+    await chrome.tabs.create({
+        url: page,
+        windowId: tab.windowId,
+        index: tab.index + 1,
+        active: !(self.G && self.G.downActive),
     });
-    await wmcEnsurePanel(false);
-    return { ok: true };
+}
+
+// AC-11：没有选段时走上游下载。有选段的任务仍由本扩展的面板执行。
+async function wmcHandoff(message, tab, frameId) {
+    const urls = [];
+    if (/^https?:\/\//i.test(message.url || "")) urls.push(message.url);
+    if (/^blob:/i.test(message.url || "")) urls.push(...await wmcPlayerUrls(tab.id, frameId));
+    let items = wmcMatchCache(tab.id, urls);
+    if (!items.length) {
+        const picked = wmcPickM3u8((self.cacheData && self.cacheData[tab.id]) || []);
+        if (picked) items = [picked];
+    }
+    if (!items.length) {
+        const media = await wmcResolveMedia(tab.id, message.url, message.duration, { frameId });
+        if (media.hlsUrl) items = wmcMatchCache(tab.id, [media.hlsUrl]);
+        if (!items.length && media.hlsUrl) {
+            items = [{
+                url: media.hlsUrl,
+                ext: "m3u8",
+                requestHeaders: media.requestHeaders,
+                initiator: media.initiator,
+                title: message.pageTitle,
+                tabId: tab.id,
+            }];
+        }
+        if (!items.length && /^https?:\/\//i.test(message.url || "")) {
+            const page = new URL(chrome.runtime.getURL("downloader.html"));
+            page.searchParams.set("autoClose", "1");
+            page.searchParams.set("JSON", JSON.stringify({
+                url: message.url,
+                requestId: crypto.randomUUID(),
+                title: String(message.pageTitle || tab.title || ""),
+                requestHeaders: {},
+                initiator: message.pageUrl || tab.url,
+            }));
+            await wmcOpenUpstream(tab, page.href);
+            return { ok: true };
+        }
+        if (!items.length) return { ok: false, error: media.reason || "no-source" };
+    }
+    const pickedM3u8 = wmcPickM3u8(items);
+    if (pickedM3u8) items = items.filter((item) => wmcParsing(item) !== "m3u8").concat(pickedM3u8);
+    const files = [];
+    let opened = 0;
+    for (const item of items) {
+        const parsing = wmcParsing(item);
+        if (!parsing) { files.push(item); continue; }
+        const page = new URL(chrome.runtime.getURL(`${parsing}.html`));
+        page.searchParams.set("url", item.url);
+        page.searchParams.set("title", String(item.title || message.pageTitle || tab.title || ""));
+        if (item.downFileName) page.searchParams.set("filename", item.downFileName);
+        page.searchParams.set("tabid", String(item.tabId == null ? tab.id : item.tabId));
+        if (item.initiator) page.searchParams.set("initiator", item.initiator);
+        if (item.requestHeaders) page.searchParams.set("requestHeaders", JSON.stringify(item.requestHeaders));
+        if (parsing === "m3u8" && (!self.G || self.G.m3u8AutoDown !== false)) {
+            page.searchParams.set("autoDown", "1");
+            page.searchParams.set("wmcMp4", "1");
+        }
+        await wmcOpenUpstream(tab, page.href);
+        opened += 1;
+    }
+    const ready = files.filter((item) => item.requestId);
+    if (ready.length) {
+        const page = new URL(chrome.runtime.getURL("downloader.html"));
+        page.searchParams.set("requestId", ready.map((item) => item.requestId).join(","));
+        page.searchParams.set("autoClose", "1");
+        await wmcOpenUpstream(tab, page.href);
+        opened += 1;
+    }
+    return opened ? { ok: true } : { ok: false, error: "no-source" };
 }
 
 async function wmcSubmit(message, sender) {
@@ -228,8 +350,8 @@ async function wmcSubmit(message, sender) {
             !Number.isFinite(seg.start) || !Number.isFinite(seg.end) ||
             seg.start < 0 || seg.end <= seg.start || seg.end > message.duration) ||
         new Set(segments.map((seg) => seg.segIndex)).size !== segments.length) return { ok: false, error: "bad-range" };
-    const media = await wmcResolveMedia(tab.id, message.url, message.duration, { frameId: sender.frameId });
-    if (!media.selectable) return { ok: false, error: "not-selectable" };
+    const media = await wmcMediaFor(tab.id, message.url, message.duration, { frameId: sender.frameId });
+    if (!media.selectable) return { ok: false, error: media.reason || "not-selectable" };
     // 提交时整体快照（字段见 SPEC「Interfaces and data」），之后改选段不影响这条记录。
     const submitted = segments.map((seg) => ({
         id: crypto.randomUUID(),
@@ -284,7 +406,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         settle((async () => {
             const tabId = sender.tab && sender.tab.id;
             if (message.drm || message.mediaStream) return { selectable: false, kind: null, reason: WMC_REASON.unsupported };
-            const media = await wmcResolveMedia(tabId, message.currentSrc || message.url, message.duration, { frameId: sender.frameId });
+            const media = await wmcMediaFor(tabId, message.currentSrc || message.url, message.duration, { frameId: sender.frameId });
             return {
                 selectable: media.selectable,
                 kind: media.kind || null,
