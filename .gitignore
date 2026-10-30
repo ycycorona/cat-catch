@@ -8,3 +8,4 @@ dist/
 
 # Local agent preferences
 .orca.local.yaml
+.wmc.local.json
