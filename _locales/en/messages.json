@@ -95,6 +95,63 @@
   "wmc_noMatch": {
     "message": "No matching tasks"
   },
+  "wmc_groupBy": {
+    "message": "Group"
+  },
+  "wmc_groupSite": {
+    "message": "By site"
+  },
+  "wmc_groupPage": {
+    "message": "By page"
+  },
+  "wmc_groupNone": {
+    "message": "No grouping"
+  },
+  "wmc_groupOther": {
+    "message": "Other"
+  },
+  "wmc_groupRatio": {
+    "message": "$1/$2 done"
+  },
+  "wmc_cancelOpen": {
+    "message": "Cancel unfinished"
+  },
+  "wmc_retryFailed": {
+    "message": "Retry failed"
+  },
+  "wmc_clearDone": {
+    "message": "Clear finished"
+  },
+  "wmc_openSource": {
+    "message": "Open source page"
+  },
+  "wmc_fold": {
+    "message": "Collapse"
+  },
+  "wmc_queuePos": {
+    "message": "Queued · #$1"
+  },
+  "wmc_elapsed": {
+    "message": "Elapsed $1"
+  },
+  "wmc_eta": {
+    "message": "Left $1"
+  },
+  "wmc_openFile": {
+    "message": "Open"
+  },
+  "wmc_showFile": {
+    "message": "Show in folder"
+  },
+  "wmc_fileGone": {
+    "message": "File is no longer there"
+  },
+  "wmc_delete": {
+    "message": "Delete"
+  },
+  "wmc_panelNote": {
+    "message": "One download at a time, in the order submitted. There is no pause: retry starts over. Deleting a record does not delete the saved file."
+  },
   "wmc_cancel": {
     "message": "Cancel"
   },

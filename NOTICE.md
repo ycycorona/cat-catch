@@ -73,6 +73,8 @@ GPL §5a 要求标注修改。约定：**每个版本在此登记对上游文件
 | 2026-10-30 | 未发版 | 恢复列表里的片名过长时从中间省略，悬停用现有气泡显示全名。时间和段数不截。`wmc/overlay.js` |
 | 2026-10-30 | 未发版 | 标准视图底栏左侧用「任务」打开任务面板，和右侧下载按钮分开：竖线、名单图标、冰蓝色字，没有描边框。`wmc/overlay.js`；`_locales/{zh_CN,en}` 的 `wmc_tasks` 是名词 |
 | 2026-10-30 | 未发版 | 任务面板增加状态页签、搜索和标签页标题；进度更新只改已有行，不整表重建。`wmc/panel.html`、`wmc/panel.js`；`_locales/{zh_CN,en}` 新增 `wmc_tab*`、`wmc_search`、`wmc_searchClear`、`wmc_noMatch` |
+| 2026-10-30 | 未发版 | 任务面板默认按站点再按媒体分组，可改为按页面或不分组，组可折叠。组头有完成比例，并能取消未完成、重试失败、清除已完成。`wmc/panel.html`、`wmc/panel.js`；`_locales/{zh_CN,en}` 新增 `wmc_group*`、`wmc_cancelOpen`、`wmc_retryFailed`、`wmc_clearDone`、`wmc_openSource`、`wmc_fold` |
+| 2026-10-30 | 未发版 | 下载中的行显示进度条、已用时间和预计剩余；排队显示位次。完成后记下下载编号，可打开文件或在文件夹中显示，文件不在则置灰。失败、中断、已取消可删除记录，不删文件。`wmc/panel.js`、`wmc/panel.html`；`_locales/{zh_CN,en}` 新增 `wmc_queuePos`、`wmc_elapsed`、`wmc_eta`、`wmc_openFile`、`wmc_showFile`、`wmc_fileGone`、`wmc_delete`、`wmc_panelNote` |
 | 2026-10-30 | 未发版 | 分段会话：`manifest.json` 的内容脚本在 `wmc/overlay.js` 前加入 `wmc/sessions.js`。每个网站在本机保留最近 10 条分段记录；再次打开默认是空的新会话。恢复和新会话只在工作室模式、添加选段那一行出现。简洁和标准模式同样自动保存，不显示入口。`_locales/*` 仅新增 `wmc_session*` |
 | 2026-10-30 | 未发版 | HLS fMP4 选段封装修复：`wmc/hlscut.js` 清除初始化段中沿用的原片影片时长、轨道时长及可选片段总时长，让播放器按所选分片识别实际长度；音视频数据和相对偏移不变 |
 | — | 0.1.0 | （待填）新增选段与任务模块 |
