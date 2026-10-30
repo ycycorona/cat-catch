@@ -19,6 +19,7 @@
         close: svg(12, '<path d="M3 3l8 8M11 3 3 11"/>'),
         expand: svg(14, '<path d="M8 2h4v4M6 12H2V8M12 2 8 6M2 12l4-4"/>'),
         collapse: svg(14, '<path d="M12 6H8V2M2 8h4v4M8 6l4-4M6 8l-4 4"/>'),
+        tasks: svg(14, '<path d="M3 4h8M3 7h8M3 10h5"/>'),
         play: '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 2 10 6 3 10Z" fill="currentColor"/></svg>',
         pause: '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 2v8M9 2v8" stroke="currentColor" stroke-width="2"/></svg>',
     };
@@ -412,12 +413,20 @@
             .clip-error:empty { display: none; }
             .standard .editor-footer { display: flex; align-items: center; justify-content: space-between;
                 flex: none; gap: 8px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,.1); }
-            .summary { font-size: 12px; color: #9ca3af; }
+            .summary { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+                font-size: 12px; color: #9ca3af; }
             .summary.bad { color: #fda4af; }
             .summary.marking { color: #fdba74; }
-            .footer-actions { display: flex; gap: 8px; }
-            .editor-footer button.dl, .editor-footer button.whole, .editor-footer button.tasks { height: 30px; }
-            button.whole, button.tasks { width: auto; padding: 0 10px; border: 1px solid #475569; white-space: nowrap; font-size: 12px; }
+            .footer-meta { display: flex; align-items: center; min-width: 0; }
+            .footer-actions { display: flex; gap: 8px; flex: none; }
+            .editor-footer button.dl, .editor-footer button.whole { height: 30px; }
+            button.whole { width: auto; padding: 0 10px; border: 1px solid #475569; white-space: nowrap; font-size: 12px; }
+            /* [WMC] 任务是去处，跟工具行的分簇一样用竖线隔开。下载才用框。 */
+            button.tasks { width: auto; height: 22px; margin-left: 10px; padding: 0 2px 0 10px; border: 0;
+                border-left: 1px solid #374151; border-radius: 0; gap: 5px; flex: none;
+                color: #93c5fd; background: transparent; font-size: 12px; white-space: nowrap; }
+            button.tasks:hover { background: none; color: #dbeafe; }
+            button.tasks svg { display: block; flex: none; }
             .bar:not(.standard) button.whole { display: none; }
             .bar.roomy:not(.standard) .controls { flex-wrap: wrap; }
             .bar.roomy:not(.standard) .track { flex: 0 0 100%; order: 10; height: 28px; }
@@ -488,7 +497,7 @@
                 </div>
                 <div class="editor"><div class="editor-header"><span></span><span class="start-label"></span>
                     <span class="end-label"></span><span class="duration-label"></span><span></span></div><div class="rows"></div></div>
-                <div class="editor-footer"><span class="summary" role="status"></span><span class="footer-actions"><button class="tasks" type="button"></button><button class="whole" type="button"></button></span></div>
+                <div class="editor-footer"><span class="footer-meta"><span class="summary" role="status"></span><button class="tasks" type="button">${ICON.tasks}<span class="tasks-label"></span></button></span><span class="footer-actions"><button class="whole" type="button"></button></span></div>
                 <div class="toasts" role="status" aria-live="polite"></div>
             </div>`;
 
@@ -558,7 +567,7 @@
         add.textContent = msg("wmc_add15");
         whole.textContent = msg("wmc_downloadWhole");
         whole.title = msg("wmc_downloadWholeTip");
-        tasks.textContent = msg("wmc_tasks");
+        tasks.querySelector(".tasks-label").textContent = msg("wmc_tasks");
         tasks.setAttribute("aria-label", msg("wmc_openTasks"));
         pill.title = msg("wmc_openTasks");
         const close = root.querySelector(".controls > .close");
