@@ -1345,6 +1345,9 @@
   "wmc_openTasks": {
     "message": "Open task manager"
   },
+  "wmc_tasks": {
+    "message": "Open tasks"
+  },
   "wmc_window": {
     "message": "Window"
   },

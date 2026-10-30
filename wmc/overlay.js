@@ -416,8 +416,8 @@
             .summary.bad { color: #fda4af; }
             .summary.marking { color: #fdba74; }
             .footer-actions { display: flex; gap: 8px; }
-            .editor-footer button.dl, .editor-footer button.whole { height: 30px; }
-            button.whole { width: auto; padding: 0 10px; border: 1px solid #475569; white-space: nowrap; font-size: 12px; }
+            .editor-footer button.dl, .editor-footer button.whole, .editor-footer button.tasks { height: 30px; }
+            button.whole, button.tasks { width: auto; padding: 0 10px; border: 1px solid #475569; white-space: nowrap; font-size: 12px; }
             .bar:not(.standard) button.whole { display: none; }
             .bar.roomy:not(.standard) .controls { flex-wrap: wrap; }
             .bar.roomy:not(.standard) .track { flex: 0 0 100%; order: 10; height: 28px; }
@@ -488,7 +488,7 @@
                 </div>
                 <div class="editor"><div class="editor-header"><span></span><span class="start-label"></span>
                     <span class="end-label"></span><span class="duration-label"></span><span></span></div><div class="rows"></div></div>
-                <div class="editor-footer"><span class="summary" role="status"></span><span class="footer-actions"><button class="whole" type="button"></button></span></div>
+                <div class="editor-footer"><span class="summary" role="status"></span><span class="footer-actions"><button class="tasks" type="button"></button><button class="whole" type="button"></button></span></div>
                 <div class="toasts" role="status" aria-live="polite"></div>
             </div>`;
 
@@ -550,6 +550,7 @@
         const tip = root.querySelector(".poptip");
         const dl = root.querySelector(".dl");
         const whole = root.querySelector(".whole");
+        const tasks = root.querySelector(".tasks");
         const mark = root.querySelector(".mark");
         const delta = root.querySelector(".delta");
         const toastsEl = root.querySelector(".toasts");
@@ -557,6 +558,8 @@
         add.textContent = msg("wmc_add15");
         whole.textContent = msg("wmc_downloadWhole");
         whole.title = msg("wmc_downloadWholeTip");
+        tasks.textContent = msg("wmc_tasks");
+        tasks.setAttribute("aria-label", msg("wmc_openTasks"));
         pill.title = msg("wmc_openTasks");
         const close = root.querySelector(".controls > .close");
         const bar = root.querySelector(".bar");
@@ -1368,6 +1371,7 @@
         };
         const openTasks = () => chrome.runtime.sendMessage({ Message: "wmcOpenPanel" }, () => void chrome.runtime.lastError);
         pill.addEventListener("click", openTasks);
+        tasks.addEventListener("click", openTasks);
 
         let frameKey = "";
         // 行少时按内容收高；量到的是整份列表，调用方再把高度限制在视口内。
@@ -1433,6 +1437,7 @@
             !standard && segments.slice(0, 2).every(Boolean) ? "wmc_moreSegmentsTip" : "wmc_markInTip"));
         bindTip(dl, () => msg(start !== null ? "wmc_needEnd" : invalidInputs() ? "wmc_fixRows" :
             segments.some(Boolean) ? "wmc_downloadSegsTip" : "wmc_downloadWholeTip"));
+        bindTip(tasks, () => msg("wmc_openTasks"));
         bindTip(view, () => msg(standard ? "wmc_compactView" : "wmc_standardView"));
         bindTip(close, () => msg("wmc_tipClose"));
         let docked = true;
