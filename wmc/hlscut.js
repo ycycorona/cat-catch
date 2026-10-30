@@ -306,12 +306,27 @@
         var edits = [];
         var gap = null;
         var data = view(init);
+        // 初始化段不能沿用原片时长；置零后由所选分片确定实际时长。
+        function clearDuration(box, offset32, offset64) {
+            if (!box || box.end - box.start < 4) invalid();
+            var field = timestamp(data, box, data.getUint8(box.start) === 1 ? offset64 : offset32, 1n);
+            if (field.version === 1) data.setBigUint64(field.offset, 0n);
+            else data.setUint32(field.offset, 0);
+        }
         children(data, { start: 0, end: data.byteLength }, "moov").forEach(function (moov) {
+            clearDuration(children(data, moov, "mvhd")[0], 16, 24);
+            children(data, moov, "mvex").forEach(function (mvex) {
+                children(data, mvex, "mehd").forEach(function (mehd) { clearDuration(mehd, 4, 4); });
+            });
             children(data, moov, "trak").forEach(function (trak) {
-                var id = timeField(data, children(data, trak, "tkhd")[0]);
+                var tkhd = children(data, trak, "tkhd")[0];
+                var id = timeField(data, tkhd);
+                clearDuration(tkhd, 20, 28);
                 var mdia = children(data, trak, "mdia")[0];
                 if (!mdia) invalid();
-                var scale = timeField(data, children(data, mdia, "mdhd")[0]);
+                var mdhd = children(data, mdia, "mdhd")[0];
+                var scale = timeField(data, mdhd);
+                clearDuration(mdhd, 16, 24);
                 if (!scale) invalid();
                 scales.set(id, BigInt(scale));
                 var edts = children(data, trak, "edts")[0];
