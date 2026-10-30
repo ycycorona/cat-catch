@@ -943,6 +943,8 @@
             try { spec = JSON.parse(el.dataset.wmcThumb || ""); } catch (e) { return null; }
             if (!spec || !(spec.pic > 0) || !(spec.col > 0) || !(spec.row > 0) || !(spec.width > 0) || !(spec.height > 0)) return null;
             if (!Array.isArray(spec.urls) || !spec.urls.length || spec.urls.some((url) => /[{}]/.test(url))) return null;
+            if (spec.times && (!Array.isArray(spec.times) || spec.times.length !== spec.pic ||
+                spec.times.some((time, i) => !Number.isFinite(time) || time < 0 || (i > 0 && time <= spec.times[i - 1])))) return null;
             return spec;
         };
         video.addEventListener("wmc-thumb", () => refreshSprites(), { signal });

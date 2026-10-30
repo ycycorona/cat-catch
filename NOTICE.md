@@ -64,6 +64,7 @@ GPL §5a 要求标注修改。约定：**每个版本在此登记对上游文件
 | 2026-10-29 | 未发版 | 浮窗 I / O 打入点、出点：只在浮窗有焦点或工作室模式时生效；`_locales/*` 仅新增 `wmc_keyMarkIn` / `wmc_keyMarkOut` |
 | 2026-10-29 | 未发版 | 细节轴雪碧图预览：`manifest.json` 的 content script 列表追加 `wmc/sprites.js`（`document_start`）。预览逻辑在 `wmc/sprites.js`、`wmc/overlay.js`、`wmc/sw.js`、`wmc/hlscut.js` |
 | 2026-10-30 | 未发版 | 雪碧图地址改从页面主世界读取：`manifest.json` 追加 `wmc/sprite-page.js`（`world: MAIN`，`document_start`）。播放器 `thumbnail` 配置和它时间轴上的图片地址写入 `video.dataset.wmcThumb`，浮窗只消费这份结果 |
+| 2026-10-30 | 未发版 | B 站细节轴雪碧图：`wmc/sprite-page.js` 按当前播放器的 aid/cid 读取 videoshot 网格与时间索引；`wmc/sprites.js` 支持不等间隔的格子时间，换源时清除旧绑定。沿用标准视图预览交互，不增加 DASH 选段下载能力 |
 | 2026-10-30 | 未发版 | `wmc/popup.js`：分段浮窗打开成功后关闭猫抓弹窗。勾选自动显示、或打开失败时弹窗保持 |
 | 2026-10-29 | 未发版 | `wmc/overlay.js` 的总览/细节轴播放头统一居中、冰蓝色短肩指针；轨道顶部预留 7px，三角尖端贴住轨道上沿，保留选段裁切和拖动区域 |
 | — | 0.1.0 | （待填）新增选段与任务模块 |

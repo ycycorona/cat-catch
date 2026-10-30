@@ -112,6 +112,7 @@
 
     function cuesFromSpec(spec, duration) {
         var step = duration / spec.pic;
+        var times = spec.times;
         var per = spec.col * spec.row;
         var cues = [];
         for (var i = 0; i < spec.pic; i++) {
@@ -120,8 +121,11 @@
             var cell = i % per;
             var col = cell % spec.col;
             var row = Math.floor(cell / spec.col);
+            var start = times ? times[i] : i * step;
+            var end = times ? Math.min(times[i + 1] ?? duration, duration) : (i + 1) * step;
+            if (!(end > start)) continue;
             cues.push({
-                start: i * step, end: (i + 1) * step, url: url,
+                start: start, end: end, url: url,
                 x: col * spec.width, y: row * spec.height, w: spec.width, h: spec.height,
                 cols: spec.col, rows: spec.row, col: col, row: row,
             });
@@ -283,6 +287,11 @@ if (typeof module !== "undefined" && require.main === module) {
     assert.strictEqual(cells[4].url, "https://cdn.example/c.jpg");
     assert.strictEqual(cells[4].x, 0);
     assert.strictEqual(cells[5].x, 10);
+    var timed = api.cuesFromSpec({ pic: 4, col: 2, row: 2, width: 160, height: 90,
+        urls: ["https://cdn.example/sheet.jpg"], times: [0, 5, 11, 17] }, 20);
+    assert.strictEqual(api.cueAt(timed, 10).x, 160);
+    assert.strictEqual(api.cueAt(timed, 11).y, 90);
+    assert.strictEqual(api.cueAt(timed, 20).x, 160);
     assert.strictEqual(api.specFromText("pic_num: 1"), null);
 
     var sheet = api.cuesFromPlaylist("#EXTM3U\n#EXT-X-I-FRAME-STREAM-INF:URI=\"iframes.m3u8\"\n#EXTINF:4,\n#EXT-X-TILES:RESOLUTION=160x90,LAYOUT=2x2,DURATION=1\nsheet.jpg\n#EXTINF:4,\nseg.ts\n", "http://example.com/p.m3u8");
