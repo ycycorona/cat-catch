@@ -13,6 +13,15 @@
     const GAP = 4;
     const NATIVE_BAR = 48;
     const TOP_VISIBLE = 16;
+    const svg = (size, body) => `<svg width="${size}" height="${size}" viewBox="0 0 14 14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4">${body}</svg>`;
+    const ICON = {
+        grip: '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" fill="currentColor"><circle cx="5" cy="3" r="1.2"/><circle cx="9" cy="3" r="1.2"/><circle cx="5" cy="7" r="1.2"/><circle cx="9" cy="7" r="1.2"/><circle cx="5" cy="11" r="1.2"/><circle cx="9" cy="11" r="1.2"/></svg>',
+        close: svg(12, '<path d="M3 3l8 8M11 3 3 11"/>'),
+        expand: svg(14, '<path d="M8 2h4v4M6 12H2V8M12 2 8 6M2 12l4-4"/>'),
+        collapse: svg(14, '<path d="M12 6H8V2M2 8h4v4M8 6l4-4M6 8l-4 4"/>'),
+        play: '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 2 10 6 3 10Z" fill="currentColor"/></svg>',
+        pause: '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 2v8M9 2v8" stroke="currentColor" stroke-width="2"/></svg>',
+    };
     let current = null;
     let dismissed = false;
     let latestVideo = null;
@@ -59,12 +68,20 @@
     const targetVideo = () => eligible(current?.video) ? current.video :
         eligible(latestVideo) ? latestVideo : videos().find((video) => !video.paused) || videos()[0];
 
-    function selectVideo(video, confirmSwitch = false) {
+    // 手动切换不再弹确认框：直接换，提示条给 5 秒撤销，撤销后切回原视频并放回原来的分段。
+    function selectVideo(video, manual = false) {
         if (!eligible(video)) return false;
         if (current?.video === video) return true;
-        if (confirmSwitch && current?.hasSegments() && !window.confirm(msg("wmc_confirmSwitchMedia"))) return false;
+        const snap = manual ? current?.snapshot() : null;
+        const prev = current?.video;
         current?.remove();
         current = mount(video);
+        if (snap?.count) {
+            current.offerUndo(snap.count, () => {
+                followPlayback = false;
+                if (selectVideo(prev)) current.restore(snap);
+            });
+        }
         return true;
     }
 
@@ -199,6 +216,22 @@
             button:focus-visible { outline: 2px solid #60a5fa; }
             button:disabled { opacity: .4; cursor: not-allowed; background: none; }
             .play { width: 28px; height: 28px; background: rgba(255,255,255,.12); }
+            .identity button.view, .identity button.close { width: 28px; height: 28px; }
+            /* [WMC] 入点 / 出点 / 更多段，与下载按钮一样写出动作。 */
+            button.mark, button.dl { width: auto; height: 28px; padding: 0 10px; gap: 6px; border: 1px solid #475569;
+                white-space: nowrap; flex: none; font-size: 12px; }
+            button.mark kbd { font: 10px ui-monospace, Consolas, monospace; color: #9ca3af; }
+            button.mark kbd:empty { display: none; }
+            button.mark.marking { border-color: #f97316; background: rgba(249,115,22,.2); }
+            button.mark.marking kbd { color: #fdba74; }
+            button.dl.primary { border-color: #2563eb; background: #2563eb; font-weight: 600; }
+            button.dl.primary:hover { background: #1d4ed8; }
+            button.dl[hidden] { display: none; }
+            button.is-disabled { opacity: .45; cursor: not-allowed; }
+            button.is-disabled:hover { background: none; }
+            button.dl.primary.is-disabled:hover { background: #2563eb; }
+            .delta { font: 11px ui-monospace, Consolas, monospace; color: #fdba74; flex: none; }
+            .delta:empty { display: none; }
             .time { flex-shrink: 0; font: 12px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace;
                 font-variant-numeric: tabular-nums; white-space: nowrap; color: #e5e7eb; }
             .track { position: relative; flex: 1; min-width: 28px; height: 16px; display: flex; align-items: center;
@@ -206,7 +239,8 @@
             .rail { position: relative; width: 100%; height: 4px; border-radius: 2px; background: rgba(255,255,255,.28); }
             .seg { position: absolute; top: -9px; height: 8px; border-radius: 3px; touch-action: none; }
             .seg:not(.pending) { cursor: grab; }
-            .seg.pending { opacity: .6; }
+            .seg.pending { opacity: .6; box-sizing: border-box; border-right: 2px dashed currentColor; border-radius: 3px 0 0 3px; }
+            .seg.picked { box-shadow: 0 0 0 1.5px #fff; }
             .seg[hidden] { display: none; }
             .edge { position: absolute; top: -4px; z-index: 2; width: 8px; height: 16px; cursor: ew-resize;
                 background: rgba(255,255,255,.5); touch-action: none; }
@@ -214,16 +248,30 @@
             .edge.end { left: 100%; }
             .delete { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%);
                 background: #111827; visibility: hidden; }
-            .seg:hover .delete, .seg:focus-within .delete { visibility: visible; }
+            .seg:hover .delete, .seg:focus-within .delete, .seg.picked .delete { visibility: visible; }
             .pending .edge, .pending .delete { display: none; }
-            .badge { min-width: 12px; font-size: 12px; }
-            .badge:empty { display: none; }
+            /* [WMC] 任务胶囊：进行中蓝、失败红、完成绿；点开任务管理器。 */
+            button.pill { width: auto; height: 24px; padding: 0 9px; border-radius: 12px; gap: 6px; font-size: 11px;
+                white-space: nowrap; flex: none; background: rgba(59,130,246,.22); color: #bfdbfe; }
+            button.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #60a5fa; }
+            button.pill.failed { background: rgba(244,63,94,.2); color: #fecdd3; }
+            button.pill.failed::before { background: #fb7185; }
+            button.pill.done { background: rgba(34,197,94,.2); color: #bbf7d0; }
+            button.pill.done::before { background: #4ade80; }
+            button.pill:hover { filter: brightness(1.2); }
+            button.pill[hidden] { display: none; }
             .head { position: absolute; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px;
                 border-radius: 50%; background: #fff; pointer-events: none; }
-            .hint { position: absolute; left: 10px; bottom: 100%; margin-bottom: 6px; padding: 4px 8px;
-                border-radius: 6px; background: #111827; color: #fde68a; font-size: 12px; white-space: nowrap;
-                box-shadow: 0 4px 12px rgba(0,0,0,.35); }
-            .hint:empty { display: none; }
+            /* [WMC] 提示分级：信息与撤销会自己消失，错误常驻、手动关闭。 */
+            .toasts { position: absolute; left: 10px; bottom: 100%; margin-bottom: 6px; display: flex;
+                flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: none; }
+            .toast { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 10px; border-radius: 8px;
+                background: #111827; border: 1px solid #334155; color: #e5e7eb; font-size: 12px; white-space: nowrap;
+                box-shadow: 0 4px 12px rgba(0,0,0,.35); pointer-events: auto; }
+            .toast.error { background: #3f1d24; border-color: #fb7185; color: #fecdd3; }
+            .toast button { width: auto; height: 22px; padding: 0 8px; border: 1px solid #475569; font-size: 12px; }
+            .toast button.link { border: 0; padding: 0 2px; color: #93c5fd; text-decoration: underline; }
+            .toast button.dismiss { width: 22px; padding: 0; border: 0; }
             .editor, .ticks, .editor-footer { display: none; }
             .bar.standard { display: flex; flex-direction: column; }
             .standard .controls { flex: none; flex-wrap: nowrap; align-items: center; gap: 4px; min-height: 22px; }
@@ -233,7 +281,13 @@
             .axes, .zooms, .hint-btn { display: none; }
             .standard .axes { display: block; margin-top: 4px; }
             .standard .zooms, .standard .hint-btn { display: inline-flex; align-items: center; }
-            .zooms { gap: 2px; flex: none; }
+            /* [WMC] 工具行四簇：播放 ｜ 窗口 ｜ 会话与选段 ｜ 任务，簇间用竖线分开。 */
+            .zooms { gap: 6px; flex: none; margin-left: 6px; padding-left: 10px; border-left: 1px solid #374151; }
+            .zooms .zlabel { color: #9ca3af; font-size: 11px; }
+            .zgroup { display: flex; border: 1px solid #475569; border-radius: 6px; overflow: hidden; }
+            .zgroup button { border-radius: 0; border-right: 1px solid #475569 !important; }
+            .zgroup button:last-child { border-right: 0 !important; }
+            .standard .controls > button.pill { margin-left: 4px; }
             .axis { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 6px; align-items: end; }
             .axis + .axis { margin-top: 4px; }
             .lab { color: #9ca3af; font-size: 11px; line-height: 14px; height: 14px; white-space: nowrap; }
@@ -274,12 +328,12 @@
             .dseg.pending .h { display: none; }
             .dseg.picked { z-index: 3; box-shadow: inset 0 0 0 2px #fff, 0 0 0 1px rgba(255,255,255,.9); }
             .dhead { z-index: 4; }
-            button.zoom-out, button.zoom-in { width: 22px; height: 22px; padding: 0; border: 1px solid #475569; line-height: 1; flex: none; font-size: 12px; }
-            button.zoom-full, button.zoom-span { width: auto; height: 22px; padding: 0 6px; border: 1px solid #475569;
+            button.zoom-out, button.zoom-in { width: 26px; height: 24px; padding: 0; border: 0; line-height: 1; flex: none; font-size: 12px; }
+            button.zoom-full, button.zoom-span { width: auto; height: 24px; padding: 0 8px; border: 0;
                 line-height: 1; white-space: nowrap; flex: none; font-size: 11px; }
-            button.zoom-span[aria-pressed="true"] { border-color: #93c5fd; color: #93c5fd; }
-            button.hint-btn { width: 16px; height: 16px; padding: 0; border-radius: 50%; border: 1px solid #93c5fd;
-                color: #93c5fd; font-size: 10px; font-weight: 700; line-height: 1; flex: none; }
+            button.zoom-span[aria-pressed="true"], button.zoom-full[aria-pressed="true"] { background: rgba(147,197,253,.2); color: #bfdbfe; }
+            button.hint-btn { width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid #93c5fd;
+                color: #93c5fd; font-size: 11px; font-weight: 700; line-height: 1; flex: none; }
             .standard .identity .view, .standard .identity .close { width: 26px; height: 26px; flex: none; }
             button.studio { width: auto; height: 26px; padding: 0 8px; border: 1px solid #475569;
                 white-space: nowrap; flex: none; font-size: 12px; }
@@ -287,10 +341,11 @@
             .bar.studio-on button.studio { display: none; }
             .sessions { position: relative; display: none; align-items: center; gap: 4px; flex: none; }
             .bar.studio-on .sessions { display: inline-flex; }
-            button.session-new, button.session-resume { width: auto; height: 26px; padding: 0 8px;
+            button.session-resume { width: auto; height: 28px; padding: 0 10px;
                 border: 1px solid #475569; white-space: nowrap; flex: none; font-size: 12px; }
-            button.session-new[hidden] { display: none; }
-            .standard button.session-new, .standard button.session-resume { height: 22px; padding: 0 6px; font-size: 11px; }
+            button.session-resume[aria-expanded="true"] { border-color: #93c5fd; }
+            .session-menu .divider { height: 1px; margin: 4px 0; background: #374151; }
+            .session-menu .label { padding: 4px 8px; color: #9ca3af; font-size: 11px; }
             .session-menu { position: absolute; z-index: 8; right: 0; bottom: calc(100% + 6px); width: 280px;
                 max-height: 240px; overflow: auto; padding: 4px; background: #111827; border: 1px solid #475569;
                 border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.45); }
@@ -332,9 +387,9 @@
             .bar[data-tip] > .poptip:not(:empty) { display: block; }
             .edge[data-tip] > .poptip:not(:empty),
             .seg[data-tip] > .poptip:not(:empty) { display: block; }
-            .standard .add-wrap { margin-left: auto; }
-            button.add { width: auto; }
-            .standard .add { height: 22px; padding: 0 6px; border: 1px solid #475569; white-space: nowrap; line-height: 1; font-size: 11px; }
+            .standard .add-wrap { margin-left: auto; gap: 6px; }
+            button.add { display: none; width: auto; }
+            .standard button.add { display: flex; height: 28px; padding: 0 10px; border: 1px solid #475569; white-space: nowrap; line-height: 1; font-size: 12px; }
             .standard .editor { display: block; overflow: auto; flex: none; min-height: 0; margin-top: 6px; }
             .editor-header, .clip-row { display: grid; grid-template-columns: 25px minmax(128px,1fr) minmax(128px,1fr) 95px 52px;
                 gap: 8px; align-items: center; min-width: 500px; }
@@ -352,10 +407,18 @@
             .clip-row input[aria-invalid=true] { border-color: #fb7185; background: #3b2432; }
             .clip-duration { color: #b3c2d7; font: 11px ui-monospace, Consolas, monospace; }
             .clip-actions { display: flex; gap: 3px; }
+            .clip-row[aria-invalid="true"] .clip-duration { color: #fda4af; }
+            .clip-error { grid-column: 2 / -1; color: #fda4af; font-size: 12px; }
+            .clip-error:empty { display: none; }
             .standard .editor-footer { display: flex; align-items: center; justify-content: space-between;
                 flex: none; gap: 8px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,.1); }
-            .summary { font-size: 11px; color: #9ca3af; }
-            .editor-footer .dl { width: auto; height: 26px; padding: 0 10px; line-height: 1; white-space: nowrap; background: #2563eb; }
+            .summary { font-size: 12px; color: #9ca3af; }
+            .summary.bad { color: #fda4af; }
+            .summary.marking { color: #fdba74; }
+            .footer-actions { display: flex; gap: 8px; }
+            .editor-footer button.dl, .editor-footer button.whole { height: 30px; }
+            button.whole { width: auto; padding: 0 10px; border: 1px solid #475569; white-space: nowrap; font-size: 12px; }
+            .bar:not(.standard) button.whole { display: none; }
             .bar.roomy:not(.standard) .controls { flex-wrap: wrap; }
             .bar.roomy:not(.standard) .track { flex: 0 0 100%; order: 10; height: 28px; }
             .bar.roomy:not(.standard) .controls { position: absolute; left: 10px; right: 10px; bottom: 8px; }
@@ -379,18 +442,21 @@
                 <span class="poptip" role="tooltip"></span>
                 <div class="identity"><label for="wmc-media"></label><select class="media" id="wmc-media"></select><button class="studio" type="button" aria-pressed="false"></button></div>
                 <div class="controls">
-                <span class="handle" aria-hidden="true">⠿</span>
+                <span class="handle" aria-hidden="true">${ICON.grip}</span>
                 <button class="play" type="button"></button>
                 <span class="time">00:00 / 00:00</span>
                 <span class="zooms">
+                <span class="zlabel"></span>
+                <span class="zgroup" role="group">
                 <button class="zoom-out" type="button">−</button>
-                <button class="zoom-in" type="button">+</button>
                 <button class="zoom-span" type="button" data-span="300">5 min</button>
                 <button class="zoom-span" type="button" data-span="900">15 min</button>
                 <button class="zoom-span" type="button" data-span="1800">30 min</button>
                 <button class="zoom-full" type="button"></button>
+                <button class="zoom-in" type="button">+</button>
                 </span>
-                <button class="hint-btn" type="button" aria-expanded="false">!</button>
+                </span>
+                <button class="hint-btn" type="button" aria-expanded="false">?</button>
                 <div class="keys" hidden role="dialog">
                     <button class="close" type="button">×</button>
                     <h2></h2>
@@ -398,6 +464,8 @@
                         <div><dt>空格</dt><dd class="key-play"></dd></div>
                         <div><dt>I</dt><dd class="key-mark-in"></dd></div>
                         <div><dt>O</dt><dd class="key-mark-out"></dd></div>
+                        <div><dt>Esc</dt><dd class="key-esc"></dd></div>
+                        <div><dt>Delete</dt><dd class="key-delete"></dd></div>
                         <div><dt>+ / =</dt><dd class="key-in"></dd></div>
                         <div><dt>−</dt><dd class="key-out"></dd></div>
                         <div><dt>← / →</dt><dd class="key-step"></dd></div>
@@ -408,11 +476,11 @@
                     </dl>
                 </div>
                 <div class="track"><div class="rail"></div><div class="head"></div><div class="ticks"></div></div>
-                <span class="add-wrap"><span class="sessions"><button class="session-resume" type="button" aria-haspopup="menu" aria-expanded="false"></button><button class="session-new" type="button" hidden></button><div class="session-menu" hidden role="menu"></div></span><button class="add" type="button">＋</button></span>
-                <button class="dl" type="button">↓</button>
-                <span class="badge" role="status" aria-live="polite"></span>
-                <button class="view" type="button">↗</button>
-                <button class="close" type="button">×</button>
+                <span class="add-wrap"><span class="sessions"><button class="session-resume" type="button" aria-haspopup="menu" aria-expanded="false"></button><div class="session-menu" hidden role="menu"></div></span><button class="add" type="button"></button><span class="delta" aria-hidden="true"></span><button class="mark" type="button"><span class="mark-label"></span><kbd></kbd></button></span>
+                <button class="dl" type="button"></button>
+                <button class="pill" type="button" hidden></button>
+                <button class="view" type="button"></button>
+                <button class="close" type="button">${ICON.close}</button>
                 </div>
                 <div class="axes">
                     <div class="axis"><span class="lab ov-lab"></span><div class="ov"><div class="ov-clip"><div class="ov-shade left"></div><div class="ov-shade right"></div><div class="ov-marks"></div><div class="ov-win"><i class="grip l" data-edge="l"></i><i class="grip r" data-edge="r"></i></div></div><div class="ohead"></div></div></div>
@@ -420,8 +488,8 @@
                 </div>
                 <div class="editor"><div class="editor-header"><span></span><span class="start-label"></span>
                     <span class="end-label"></span><span class="duration-label"></span><span></span></div><div class="rows"></div></div>
-                <div class="editor-footer"><span class="summary"></span></div>
-                <div class="hint" role="status" aria-live="polite"></div>
+                <div class="editor-footer"><span class="summary" role="status"></span><span class="footer-actions"><button class="whole" type="button"></button></span></div>
+                <div class="toasts" role="status" aria-live="polite"></div>
             </div>`;
 
         const handle = root.querySelector(".handle");
@@ -466,6 +534,10 @@
         keys.querySelector(".key-play").textContent = msg("wmc_keyPlay");
         keys.querySelector(".key-mark-in").textContent = msg("wmc_keyMarkIn");
         keys.querySelector(".key-mark-out").textContent = msg("wmc_keyMarkOut");
+        keys.querySelector(".key-esc").textContent = msg("wmc_keyEsc");
+        keys.querySelector(".key-delete").textContent = msg("wmc_keyDelete");
+        root.querySelector(".zlabel").textContent = msg("wmc_window");
+        root.querySelector(".zgroup").setAttribute("aria-label", msg("wmc_window"));
         keys.querySelector(".key-in").textContent = msg("wmc_keyZoomIn");
         keys.querySelector(".key-out").textContent = msg("wmc_keyZoomOut");
         keys.querySelector(".key-step").textContent = msg("wmc_keyPrevNext");
@@ -477,8 +549,15 @@
         const addWrap = root.querySelector(".add-wrap");
         const tip = root.querySelector(".poptip");
         const dl = root.querySelector(".dl");
-        const hint = root.querySelector(".hint");
-        const badge = root.querySelector(".badge");
+        const whole = root.querySelector(".whole");
+        const mark = root.querySelector(".mark");
+        const delta = root.querySelector(".delta");
+        const toastsEl = root.querySelector(".toasts");
+        const pill = root.querySelector(".pill");
+        add.textContent = msg("wmc_add15");
+        whole.textContent = msg("wmc_downloadWhole");
+        whole.title = msg("wmc_downloadWholeTip");
+        pill.title = msg("wmc_openTasks");
         const close = root.querySelector(".controls > .close");
         const bar = root.querySelector(".bar");
         bar.tabIndex = -1;
@@ -538,8 +617,7 @@
         });
 
         play.setAttribute("aria-label", msg("wmc_play"));
-        add.setAttribute("aria-label", msg("wmc_addSegment"));
-        dl.setAttribute("aria-label", msg("wmc_download"));
+        handle.title = msg("wmc_drag");
         close.setAttribute("aria-label", msg("wmc_closeOverlay"));
 
         let start = null; // 待定起点
@@ -627,6 +705,13 @@
         const segEls = [];
         const editorRows = [];
         const invalidInputs = () => !!rows.querySelector('[aria-invalid="true"]');
+        const resetRow = (row) => {
+            if (!row) return;
+            row.querySelectorAll("input").forEach((input) => input.removeAttribute("aria-invalid"));
+            row.removeAttribute("aria-invalid");
+            row.querySelector(".clip-error").textContent = "";
+        };
+        const removers = []; // 每个槽位的删除函数，Delete 键按选中的槽位调用。
         const ensureView = () => {
             const duration = Number.isFinite(video.duration) ? video.duration : 0;
             if (!(duration > 0)) return { s: 0, e: MIN_SPAN };
@@ -701,12 +786,13 @@
             const removeSegment = () => {
                 segments[index] = null;
                 if (selectedSeg === index) selectedSeg = -1;
-                editorRows[index].querySelectorAll("input").forEach((input) => input.removeAttribute("aria-invalid"));
+                resetRow(editorRows[index]);
                 showHint("");
                 touchSession();
                 flushSession();
                 render();
             };
+            removers[index] = removeSegment;
             del.addEventListener("click", (e) => {
                 e.stopPropagation();
                 removeSegment();
@@ -772,6 +858,7 @@
                 if (!seg || el.classList.contains("pending") || edgeDrag) return;
                 e.preventDefault();
                 e.stopPropagation();
+                pickSegment(index);
                 const originX = e.clientX;
                 const originStart = seg.start;
                 const length = Math.max(0.001, seg.end - seg.start);
@@ -891,19 +978,26 @@
             row.style.setProperty("--seg", segColor);
             row.innerHTML = '<span class="clip-number"></span><input data-field="start" type="text" spellcheck="false">' +
                 '<input data-field="end" type="text" spellcheck="false"><span class="clip-duration"></span>' +
-                '<span class="clip-actions"><button class="locate" type="button">▶</button><button class="remove" type="button">×</button></span>';
+                '<span class="clip-actions"><button class="locate" type="button">▶</button><button class="remove" type="button">×</button></span>' +
+                '<span class="clip-error" role="alert"></span>';
             const number = row.querySelector(".clip-number");
             number.textContent = String(index + 1);
             number.style.background = SEG_COLORS[index % SEG_COLORS.length];
             const inputs = [...row.querySelectorAll("input")];
+            const rowError = row.querySelector(".clip-error");
+            // 原因写在出错那一行下面，浮窗顶部不再报时间错误。
             const validate = () => {
                 const [begin, end] = inputs.map((input) => parseStamp(input.value));
-                const valid = !!segments[index] && Number.isFinite(begin) && Number.isFinite(end) &&
-                    begin >= 0 && begin < end && end <= video.duration;
-                inputs.forEach((input) => input.setAttribute("aria-invalid", String(!!segments[index] && !valid)));
-                dl.disabled = invalidInputs();
-                showHint(invalidInputs() ? msg("wmc_invalidSegmentTime") : "");
-                return valid ? { start: begin, end } : null;
+                const hours = video.duration >= 3600;
+                const reason = !segments[index] ? "" :
+                    !Number.isFinite(begin) || !Number.isFinite(end) ? msg("wmc_rowFormat") :
+                    end > video.duration ? chrome.i18n.getMessage("wmc_rowOverflow", stamp(video.duration)) :
+                    begin >= end ? chrome.i18n.getMessage("wmc_rowOrder", [fmt(end, hours), fmt(begin, hours)]) : "";
+                inputs.forEach((input) => input.setAttribute("aria-invalid", String(!!reason)));
+                row.setAttribute("aria-invalid", String(!!reason));
+                rowError.textContent = reason;
+                render();
+                return reason ? null : { start: begin, end };
             };
             for (const input of row.querySelectorAll("input")) {
                 input.setAttribute("aria-label", `${index + 1} ${msg(input.dataset.field === "start" ? "wmc_segmentStart" : "wmc_segmentEnd")}`);
@@ -1239,10 +1333,16 @@
             const plain = !ev.ctrlKey && !ev.metaKey && !ev.altKey;
             if (ev.key === "Escape") {
                 if (!keys.hidden) toggleKeys(false);
+                else if (start !== null) cancelPending();
                 else if (studio) exitStudio();
                 return;
             }
             if (ev.key === "?") { ev.preventDefault(); toggleKeys(); return; }
+            if (plain && (ev.key === "Delete" || ev.key === "Backspace") && segments[selectedSeg] && start === null) {
+                ev.preventDefault();
+                removers[selectedSeg]();
+                return;
+            }
             if (!plain || !standard) return;
             if (ev.key === " " && !ev.target.closest("button")) { ev.preventDefault(); if (!ev.repeat) play.click(); }
             else if (ev.key === "+" || ev.key === "=") { ev.preventDefault(); zoomWindow(0.5); }
@@ -1251,15 +1351,23 @@
             else if (ev.key === "ArrowRight") { ev.preventDefault(); showSegment(1); }
         });
 
+        // 胶囊只数当前视频的任务：进行中优先，其次失败，最后完成。
         const renderBadge = () => {
             const matching = jobs.filter((job) => job.pageUrl === location.href && job.mediaUrl === video.currentSrc);
             const count = matching.filter((job) => ["queued", "running"].includes(job.status)).length;
-            const failed = matching.some((job) => ["failed", "interrupted"].includes(job.status));
-            const done = matching.some((job) => job.status === "done");
-            badge.textContent = count ? String(count) : failed ? "!" : done ? "✓" : "";
-            badge.setAttribute("aria-label", count ? chrome.i18n.getMessage("wmc_activeDownloads", String(count)) :
-                failed ? msg("wmc_statusFailed") : done ? msg("wmc_statusDone") : "");
+            const failed = matching.filter((job) => ["failed", "interrupted"].includes(job.status)).length;
+            const done = matching.filter((job) => job.status === "done").length;
+            const text = count ? chrome.i18n.getMessage("wmc_pillRunning", String(count)) :
+                failed ? chrome.i18n.getMessage("wmc_pillFailed", String(failed)) :
+                done ? chrome.i18n.getMessage("wmc_pillDone", String(done)) : "";
+            pill.hidden = !text;
+            pill.textContent = text;
+            pill.classList.toggle("failed", !count && failed > 0);
+            pill.classList.toggle("done", !count && !failed && done > 0);
+            pill.setAttribute("aria-label", text ? `${text} · ${msg("wmc_openTasks")}` : "");
         };
+        const openTasks = () => chrome.runtime.sendMessage({ Message: "wmcOpenPanel" }, () => void chrome.runtime.lastError);
+        pill.addEventListener("click", openTasks);
 
         let frameKey = "";
         // 行少时按内容收高；量到的是整份列表，调用方再把高度限制在视口内。
@@ -1319,12 +1427,12 @@
             button.addEventListener("blur", close);
         };
         bindTip(play, () => msg("wmc_playPause"));
-        bindTip(add, () => {
-            if (capability?.selectable === false) return `${msg("wmc_addSegment")} · ${msg(capability.reason || "wmc_reasonUnknownSource")}`;
-            if (!standard && start === null && segments.slice(0, 2).every(Boolean)) return msg("wmc_maxSegments");
-            return msg("wmc_addSegment");
-        });
-        bindTip(dl, () => msg("wmc_download"));
+        const reasonTip = () => capability?.selectable === false ? msg(capability.reason || "wmc_reasonUnknownSource") : "";
+        bindTip(add, () => reasonTip() || msg("wmc_add15Tip"));
+        bindTip(mark, () => reasonTip() || msg(start !== null ? "wmc_markOutTip" :
+            !standard && segments.slice(0, 2).every(Boolean) ? "wmc_moreSegmentsTip" : "wmc_markInTip"));
+        bindTip(dl, () => msg(start !== null ? "wmc_needEnd" : invalidInputs() ? "wmc_fixRows" :
+            segments.some(Boolean) ? "wmc_downloadSegsTip" : "wmc_downloadWholeTip"));
         bindTip(view, () => msg(standard ? "wmc_compactView" : "wmc_standardView"));
         bindTip(close, () => msg("wmc_tipClose"));
         let docked = true;
@@ -1568,7 +1676,12 @@
 
         const render = () => {
             const duration = isFinite(video.duration) ? video.duration : 0;
-            play.textContent = video.paused ? "▶" : "❚❚";
+            const count = segments.filter(Boolean).length;
+            const invalid = invalidInputs();
+            if (play.dataset.state !== String(video.paused)) {
+                play.dataset.state = String(video.paused);
+                play.innerHTML = video.paused ? ICON.play : ICON.pause;
+            }
             play.setAttribute("aria-label", video.paused ? msg("wmc_play") : msg("wmc_pause"));
             const hours = duration >= 3600;
             time.textContent = `${fmt(video.currentTime, hours)} / ${fmt(duration, hours)}`;
@@ -1650,6 +1763,7 @@
                     return;
                 }
                 segEl.classList.toggle("pending", pending);
+                segEl.classList.toggle("picked", index === selectedSeg && !!segments[index] && !pending);
                 segEl.style.left = `${pct(block.start, duration)}%`;
                 segEl.style.width = `${pct(block.end, duration) - pct(block.start, duration)}%`;
                 for (const key of ["start", "end"]) {
@@ -1680,47 +1794,92 @@
                 }
                 row.querySelector(".clip-duration").textContent = stamp(seg.end - seg.start);
             });
-            const count = segments.filter(Boolean).length;
             summary.textContent = chrome.i18n.getMessage("wmc_segmentsSummary", [String(count), stamp(segments.reduce((sum, seg) => sum + (seg ? seg.end - seg.start : 0), 0))]);
             const ticks = root.querySelector(".ticks");
             ticks.replaceChildren(...[0, .25, .5, .75, 1].map((fraction) => {
                 const tick = document.createElement("span"); tick.textContent = fmt(duration * fraction, hours); return tick;
             }));
-            dl.disabled = invalidInputs();
-            dl.textContent = standard ? msg("wmc_download") : "↓";
+            const total = segments.reduce((sum, seg) => sum + (seg ? seg.end - seg.start : 0), 0);
+            const pendingNow = start !== null;
+            summary.classList.toggle("bad", invalid && !pendingNow);
+            summary.classList.toggle("marking", pendingNow);
+            if (pendingNow) summary.textContent = chrome.i18n.getMessage("wmc_markingFoot", String(pendingSlot + 1));
+            else if (invalid) summary.textContent = msg("wmc_fixRows");
+            else if (!count) summary.textContent = msg("wmc_noSegmentsFoot");
+            // 下载按钮写明动作：没有选段是整段，有选段写段数（标准视图再带合计时长）。
+            const dlBlocked = pendingNow || invalid;
+            dl.textContent = !count ? msg("wmc_downloadWhole") : standard
+                ? chrome.i18n.getMessage("wmc_downloadNTotal", [String(count), fmt(total, total >= 3600)])
+                : chrome.i18n.getMessage("wmc_downloadN", String(count));
+            dl.hidden = standard && !count;
+            dl.classList.toggle("primary", count > 0);
+            dl.classList.toggle("is-disabled", dlBlocked);
+            dl.setAttribute("aria-disabled", String(dlBlocked));
+            whole.classList.toggle("is-disabled", pendingNow);
+            whole.setAttribute("aria-disabled", String(pendingNow));
             view.setAttribute("aria-label", msg(standard ? "wmc_compactView" : "wmc_standardView"));
-            view.textContent = standard ? "↙" : count > 2 ? `↗ ${count}` : "↗";
+            view.innerHTML = standard ? ICON.collapse : ICON.expand;
+            if (!standard && count > 2) view.append(` ${count}`);
             view.style.width = !standard && count > 2 ? "auto" : "";
-            add.textContent = standard ? `＋ ${msg("wmc_addSegment")}` : "＋";
-            const addBlocked = blocked() || (!standard && start === null && segments.slice(0, 2).every(Boolean));
-            add.disabled = false;
-            add.classList.toggle("is-disabled", addBlocked);
-            add.setAttribute("aria-disabled", String(addBlocked));
+            view.style.padding = !standard && count > 2 ? "0 6px" : "";
+            // 入点 → 出点 → （简洁视图两段已满）更多段。
+            const full = !standard && !pendingNow && segments.slice(0, 2).every(Boolean);
+            mark.querySelector(".mark-label").textContent = msg(pendingNow ? "wmc_markOut" : full ? "wmc_moreSegments" : "wmc_markIn");
+            mark.querySelector("kbd").textContent = pendingNow ? "O" : full ? "" : "I";
+            mark.classList.toggle("marking", pendingNow);
+            mark.classList.toggle("is-disabled", blocked());
+            mark.setAttribute("aria-disabled", String(blocked()));
+            delta.textContent = pendingNow ? `+${fmt(Math.max(0, video.currentTime - start))}` : "";
+            add.classList.toggle("is-disabled", blocked());
+            add.setAttribute("aria-disabled", String(blocked()));
             if (bar.dataset.tip) {
                 tip.textContent = tipText();
                 placeTip();
             }
-            add.removeAttribute("title");
-            const sessionNew = root.querySelector(".session-new");
-            if (sessionNew) sessionNew.hidden = !segments.some(Boolean);
-            if (invalidInputs()) showHint(msg("wmc_invalidSegmentTime"));
             renderBadge();
             syncFrame();
         };
 
-        const showHint = (text) => {
-            hint.textContent = text;
+        // 提示分级：info 4 秒、undo 5 秒后自己消失；error 常驻，点 × 关。同类只留最新一条，最多两条。
+        const dropToast = (el) => { clearTimeout(el.wmcTimer); el.remove(); };
+        const toast = (kind, text, action) => {
+            for (const el of [...toastsEl.children]) if (el.dataset.kind === kind) dropToast(el);
+            if (!text) return;
+            const el = document.createElement("div");
+            el.className = `toast ${kind}`;
+            el.dataset.kind = kind;
+            el.setAttribute("role", kind === "error" ? "alert" : "status");
+            const label = document.createElement("span");
+            label.textContent = text;
+            el.append(label);
+            if (action) {
+                const button = document.createElement("button");
+                button.type = "button";
+                if (action.link) button.className = "link";
+                button.textContent = action.label;
+                button.addEventListener("click", () => { dropToast(el); action.run(); });
+                el.append(button);
+            }
+            if (kind === "error") {
+                const dismiss = document.createElement("button");
+                dismiss.type = "button";
+                dismiss.className = "dismiss";
+                dismiss.innerHTML = ICON.close;
+                dismiss.setAttribute("aria-label", msg("wmc_dismiss"));
+                dismiss.addEventListener("click", () => dropToast(el));
+                el.append(dismiss);
+            } else el.wmcTimer = setTimeout(() => dropToast(el), kind === "undo" ? 5000 : 4000);
+            toastsEl.append(el);
+            while (toastsEl.children.length > 2) dropToast(toastsEl.firstElementChild);
         };
+        // 旧调用点都是「出错就显示、恢复就清掉」，归为 error；信息类提示直接调 toast("info")。
+        const showHint = (text) => toast("error", text);
 
-        const sessionNew = root.querySelector(".session-new");
+        // 恢复与新会话合进一个「会话 ▾」菜单，只在工作室出现；工具行不再因「新会话」时有时无而跳动。
         const sessionResume = root.querySelector(".session-resume");
         sessionMenuEl = root.querySelector(".session-menu");
-        sessionNew.textContent = msg("wmc_sessionNew");
-        sessionNew.title = msg("wmc_sessionNew");
-        sessionNew.setAttribute("aria-label", msg("wmc_sessionNew"));
-        sessionResume.textContent = msg("wmc_sessionResume");
-        sessionResume.title = msg("wmc_sessionResume");
-        sessionResume.setAttribute("aria-label", msg("wmc_sessionResume"));
+        sessionResume.textContent = `${msg("wmc_sessions")} ▾`;
+        sessionResume.setAttribute("aria-label", msg("wmc_sessions"));
         let sessionMenuToken = 0;
         closeSessionMenu = () => {
             sessionMenuToken += 1;
@@ -1736,7 +1895,7 @@
             start = null;
             selectedSeg = -1;
             segments.fill(null);
-            rows.querySelectorAll("input").forEach((input) => input.removeAttribute("aria-invalid"));
+            editorRows.forEach(resetRow);
             showHint("");
             closeSessionMenu();
             render();
@@ -1758,7 +1917,7 @@
             }
             for (let i = 0; i < segments.length; i++) {
                 segments[i] = fitted[i] ? { start: fitted[i].start, end: fitted[i].end } : null;
-                editorRows[i]?.querySelectorAll("input").forEach((input) => input.removeAttribute("aria-invalid"));
+                resetRow(editorRows[i]);
             }
             start = null;
             selectedSeg = 0;
@@ -1816,11 +1975,25 @@
             } catch { items = []; }
             if (token !== sessionMenuToken) return;
             sessionMenuEl.replaceChildren();
+            const part = (className, text) => {
+                const el = document.createElement("div");
+                el.className = className;
+                if (text) el.textContent = text;
+                sessionMenuEl.append(el);
+            };
+            // 新会话只在时间轴上有分段时出现：没有分段时点它什么也不会变。
+            if (segments.some(Boolean)) {
+                const fresh = document.createElement("button");
+                fresh.type = "button";
+                fresh.setAttribute("role", "menuitem");
+                fresh.textContent = msg("wmc_sessionNewItem");
+                fresh.addEventListener("click", beginSession);
+                sessionMenuEl.append(fresh);
+                part("divider");
+            }
+            part("label", msg("wmc_sessionSaved"));
             if (!items.length) {
-                const empty = document.createElement("div");
-                empty.className = "empty";
-                empty.textContent = msg("wmc_sessionEmpty");
-                sessionMenuEl.append(empty);
+                part("empty", msg("wmc_sessionEmpty"));
                 return;
             }
             for (const item of items) {
@@ -1850,7 +2023,6 @@
                 button.setAttribute("aria-label", name ? prefix + name : prefix);
             }
         };
-        sessionNew.addEventListener("click", beginSession);
         // 只在 click 打开。pointerdown 时打开的话，同一次点击冒泡到 window 会立刻关掉。
         sessionResume.addEventListener("click", (event) => {
             event.preventDefault();
@@ -1878,11 +2050,11 @@
             if (standard) {
                 identity.prepend(handle);
                 identity.append(view, close);
-                controls.append(badge);
-                root.querySelector(".editor-footer").append(dl);
+                controls.append(pill);
+                root.querySelector(".footer-actions").append(dl);
             } else {
                 identity.prepend(handle);
-                identity.append(dl, badge, view, close);
+                identity.append(dl, pill, view, close);
             }
             if (!standard) hidePreview();
             else refreshSprites();
@@ -1926,13 +2098,20 @@
                 return;
             }
             const index = takeSlot(false);
+            // 简洁视图两段已满：「更多段」直接展开标准视图，不再弹提示。
             if (index < 0) {
-                showHint(msg("wmc_maxSegments"));
+                setView(true);
+                bar.focus({ preventScroll: true });
                 return;
             }
             pendingSlot = index;
             start = clamp(video.currentTime, 0, video.duration);
             showHint("");
+            render();
+        };
+        // Esc 放弃待定入点，槽位留空给下一次。
+        const cancelPending = () => {
+            start = null;
             render();
         };
         const markOut = () => {
@@ -1941,6 +2120,7 @@
                 return;
             }
             const now = clamp(video.currentTime, 0, video.duration);
+            if (start !== null && !(now > start)) toast("info", msg("wmc_outAfterIn"));
             if (start === null || !(now > start) || segments[pendingSlot]) return;
             segments[pendingSlot] = { start, end: now };
             start = null;
@@ -1950,45 +2130,34 @@
             if (standard) rows.scrollTop = rows.scrollHeight;
             render();
         };
+        // 入点 / 出点 / 更多段共用一个按钮，状态跟 I、O 键一致。
+        mark.addEventListener("click", () => {
+            if (start !== null) markOut();
+            else markIn();
+        });
+        // 标准视图的「＋ 添加 15 秒」：在播放头处放一段 15 秒。
         add.addEventListener("click", () => {
-            if (add.getAttribute("aria-disabled") === "true") return;
-            const now = video.currentTime;
-            if (standard) {
-                const index = takeSlot(true);
-                const begin = Math.min(Math.max(0, now), Math.max(0, video.duration - .001));
-                segments[index] = { start: begin, end: Math.min(video.duration, begin + 15) };
-                showHint("");
-                touchSession();
-                flushSession();
-                const v = ensureView();
-                if (begin < v.s || begin > v.e) setWindow(begin - (v.e - v.s) * 0.2, begin + (v.e - v.s) * 0.8);
-                else render();
-                rows.scrollTop = rows.scrollHeight;
+            if (add.getAttribute("aria-disabled") === "true") {
+                if (blocked()) showHint(msg(capability?.reason || "wmc_reasonUnknownSource"));
                 return;
             }
-            if (start === null) {
-                pendingSlot = segments.findIndex((seg) => !seg);
-                if (pendingSlot < 0) return;
-                start = clamp(now, 0, video.duration);
-            } else if (now > start) {
-                segments[pendingSlot] = { start, end: Math.min(now, video.duration) };
-                start = null;
-                showHint("");
-                touchSession();
-                flushSession();
-            }
-            // 终点 ≤ 起点：不生成选段，起点保持待定
-            render();
+            const index = takeSlot(true);
+            const begin = Math.min(Math.max(0, video.currentTime), Math.max(0, video.duration - .001));
+            segments[index] = { start: begin, end: Math.min(video.duration, begin + 15) };
+            showHint("");
+            touchSession();
+            flushSession();
+            const v = ensureView();
+            if (begin < v.s || begin > v.e) setWindow(begin - (v.e - v.s) * 0.2, begin + (v.e - v.s) * 0.8);
+            else render();
+            rows.scrollTop = rows.scrollHeight;
         });
 
-        dl.addEventListener("click", () => {
-            if (invalidInputs()) { showHint(msg("wmc_invalidSegmentTime")); return; }
-            // 待定态不提交任何下载任务
-            if (start !== null) {
-                showHint(msg("wmc_needEnd"));
-                return;
-            }
-            const selected = segments.flatMap((seg, segIndex) => seg ? [{ ...seg, segIndex }] : []);
+        // 待定态与时间非法时按钮置灰，点了只说明原因，不提交任何下载任务。
+        const submit = (wholeOnly) => {
+            if (start !== null) { toast("info", msg("wmc_needEnd")); return; }
+            if (!wholeOnly && invalidInputs()) { toast("info", msg("wmc_fixRows")); return; }
+            const selected = wholeOnly ? [] : segments.flatMap((seg, segIndex) => seg ? [{ ...seg, segIndex }] : []);
             chrome.runtime.sendMessage({
                 Message: "wmcSubmit",
                 url: video.currentSrc,
@@ -2000,10 +2169,15 @@
                 const error = chrome.runtime.lastError;
                 if (signal.aborted) return;
                 const reason = response?.error && msg(response.error);
-                showHint(error || !response?.ok ? (reason || msg("wmc_submitFailed")) :
-                    selected.length ? "" : msg("wmc_wholeStarted"));
+                if (error || !response?.ok) { showHint(reason || msg("wmc_submitFailed")); return; }
+                showHint("");
+                if (!selected.length) toast("info", msg("wmc_wholeStarted"));
+                else toast("info", chrome.i18n.getMessage("wmc_submitted", String(selected.length)),
+                    { label: msg("wmc_viewTasks"), link: true, run: openTasks });
             });
-        });
+        };
+        dl.addEventListener("click", () => submit(!segments.some(Boolean)));
+        whole.addEventListener("click", () => submit(true));
 
         close.addEventListener("click", () => {
             exitStudio();
@@ -2132,7 +2306,7 @@
                     resolveTries = 0;
                     start = null;
                     segments.fill(null);
-                    rows.querySelectorAll("input").forEach((input) => input.removeAttribute("aria-invalid"));
+                    editorRows.forEach(resetRow);
                     showHint("");
                     spriteCues = [];
                     hidePreview();
@@ -2179,6 +2353,7 @@
                 ev.stopPropagation();
                 if (!keys.hidden) toggleKeys(false);
                 else if (sessionMenuEl && !sessionMenuEl.hidden) closeSessionMenu();
+                else if (start !== null) cancelPending();
                 else exitStudio();
                 return;
             }
@@ -2199,7 +2374,34 @@
         render();
         renderMedia();
         resolveMedia();
-        return { video, renderBadge, renderMedia, hasSegments: () => start !== null || segments.some(Boolean),
+        const snapshot = () => ({
+            sessionId,
+            segments: segments.map((seg) => seg && { start: seg.start, end: seg.end }),
+            count: segments.filter(Boolean).length,
+        });
+        // 撤销切换：按原槽位放回（段色不变），接着写同一条会话记录。
+        const restore = (snap) => {
+            while (segments.length < snap.segments.length) {
+                segments.push(null);
+                createSlot(segments.length - 1);
+            }
+            segments.forEach((_, i) => {
+                const seg = snap.segments[i];
+                segments[i] = seg && seg.end <= video.duration ? { start: seg.start, end: seg.end } : null;
+                resetRow(editorRows[i]);
+            });
+            sessionId = snap.sessionId;
+            sessionMediaUrl = video.currentSrc;
+            sessionDirty = false;
+            start = null;
+            selectedSeg = -1;
+            render();
+        };
+        const offerUndo = (count, run) => toast("undo",
+            chrome.i18n.getMessage("wmc_switchedMedia", [media.title || msg("wmc_currentMedia"), String(count)]),
+            { label: msg("wmc_undo"), run });
+        return { video, renderBadge, renderMedia, snapshot, restore, offerUndo,
+            hasSegments: () => start !== null || segments.some(Boolean),
             show: () => {
                 host.style.display = "";
                 renderMedia();

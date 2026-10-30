@@ -1275,5 +1275,113 @@
   },
   "wmc_sessionSegments": {
     "message": "$1 段"
+  },
+  "wmc_markIn": {
+    "message": "入点"
+  },
+  "wmc_markOut": {
+    "message": "出点"
+  },
+  "wmc_moreSegments": {
+    "message": "更多段"
+  },
+  "wmc_markInTip": {
+    "message": "在当前时间标入点（I）"
+  },
+  "wmc_markOutTip": {
+    "message": "在当前时间标出点（O），Esc 放弃"
+  },
+  "wmc_moreSegmentsTip": {
+    "message": "简洁视图最多 2 段，展开标准视图继续添加"
+  },
+  "wmc_add15": {
+    "message": "＋ 添加 15 秒"
+  },
+  "wmc_add15Tip": {
+    "message": "在播放头处加一段 15 秒"
+  },
+  "wmc_downloadWhole": {
+    "message": "下载整段"
+  },
+  "wmc_downloadN": {
+    "message": "下载 $1 段"
+  },
+  "wmc_downloadNTotal": {
+    "message": "下载 $1 段 · $2"
+  },
+  "wmc_downloadWholeTip": {
+    "message": "没有选段，下载整个视频（后台新标签页）"
+  },
+  "wmc_downloadSegsTip": {
+    "message": "每段下载成一个文件"
+  },
+  "wmc_outAfterIn": {
+    "message": "出点要晚于入点"
+  },
+  "wmc_submitted": {
+    "message": "已提交 $1 段"
+  },
+  "wmc_viewTasks": {
+    "message": "在任务管理器查看"
+  },
+  "wmc_undo": {
+    "message": "撤销"
+  },
+  "wmc_switchedMedia": {
+    "message": "已切换到「$1」，清空了 $2 段"
+  },
+  "wmc_dismiss": {
+    "message": "关闭提示"
+  },
+  "wmc_pillRunning": {
+    "message": "$1 下载中"
+  },
+  "wmc_pillDone": {
+    "message": "已完成 $1"
+  },
+  "wmc_pillFailed": {
+    "message": "$1 失败"
+  },
+  "wmc_openTasks": {
+    "message": "打开任务管理器"
+  },
+  "wmc_window": {
+    "message": "窗口"
+  },
+  "wmc_sessions": {
+    "message": "会话"
+  },
+  "wmc_sessionNewItem": {
+    "message": "＋ 新会话（当前选段存入列表，时间轴清空）"
+  },
+  "wmc_sessionSaved": {
+    "message": "本页已存"
+  },
+  "wmc_keyEsc": {
+    "message": "放弃待定入点 / 关菜单 / 退出工作室"
+  },
+  "wmc_keyDelete": {
+    "message": "删除选中的段"
+  },
+  "wmc_rowFormat": {
+    "message": "时间格式应为 HH:MM:SS.mmm"
+  },
+  "wmc_rowOverflow": {
+    "message": "终点超出总时长 $1"
+  },
+  "wmc_rowOrder": {
+    "message": "终点 $1 不晚于起点 $2"
+  },
+  "wmc_fixRows": {
+    "message": "有选段时间不对，改好才能下载"
+  },
+  "wmc_markingFoot": {
+    "message": "正在标第 $1 段：按 O 标出点，Esc 放弃"
+  },
+  "wmc_noSegmentsFoot": {
+    "message": "没有选段时只能下载整段"
+  },
+  "wmc_drag": {
+    "message": "拖动"
   }
 }

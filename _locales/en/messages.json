@@ -1275,5 +1275,113 @@
   },
   "wmc_sessionSegments": {
     "message": "$1 clips"
+  },
+  "wmc_markIn": {
+    "message": "In"
+  },
+  "wmc_markOut": {
+    "message": "Out"
+  },
+  "wmc_moreSegments": {
+    "message": "More clips"
+  },
+  "wmc_markInTip": {
+    "message": "Set the in point at the current time (I)"
+  },
+  "wmc_markOutTip": {
+    "message": "Set the out point at the current time (O); Esc to discard"
+  },
+  "wmc_moreSegmentsTip": {
+    "message": "The compact view holds 2 clips; open the standard view to add more"
+  },
+  "wmc_add15": {
+    "message": "＋ Add 15 s"
+  },
+  "wmc_add15Tip": {
+    "message": "Add a 15-second clip at the playhead"
+  },
+  "wmc_downloadWhole": {
+    "message": "Download full video"
+  },
+  "wmc_downloadN": {
+    "message": "Download $1 clips"
+  },
+  "wmc_downloadNTotal": {
+    "message": "Download $1 clips · $2"
+  },
+  "wmc_downloadWholeTip": {
+    "message": "No clips selected: download the whole video in a background tab"
+  },
+  "wmc_downloadSegsTip": {
+    "message": "Each clip is saved as its own file"
+  },
+  "wmc_outAfterIn": {
+    "message": "The out point must come after the in point"
+  },
+  "wmc_submitted": {
+    "message": "Submitted $1 clips"
+  },
+  "wmc_viewTasks": {
+    "message": "View in task manager"
+  },
+  "wmc_undo": {
+    "message": "Undo"
+  },
+  "wmc_switchedMedia": {
+    "message": "Switched to “$1” and cleared $2 clips"
+  },
+  "wmc_dismiss": {
+    "message": "Dismiss"
+  },
+  "wmc_pillRunning": {
+    "message": "$1 downloading"
+  },
+  "wmc_pillDone": {
+    "message": "$1 done"
+  },
+  "wmc_pillFailed": {
+    "message": "$1 failed"
+  },
+  "wmc_openTasks": {
+    "message": "Open task manager"
+  },
+  "wmc_window": {
+    "message": "Window"
+  },
+  "wmc_sessions": {
+    "message": "Sessions"
+  },
+  "wmc_sessionNewItem": {
+    "message": "＋ New session (keep current clips in the list, clear the timeline)"
+  },
+  "wmc_sessionSaved": {
+    "message": "Saved on this page"
+  },
+  "wmc_keyEsc": {
+    "message": "Discard pending in point / close menu / leave studio"
+  },
+  "wmc_keyDelete": {
+    "message": "Delete the selected clip"
+  },
+  "wmc_rowFormat": {
+    "message": "Use HH:MM:SS.mmm"
+  },
+  "wmc_rowOverflow": {
+    "message": "End is past the video length $1"
+  },
+  "wmc_rowOrder": {
+    "message": "End $1 is not after start $2"
+  },
+  "wmc_fixRows": {
+    "message": "Fix the clip times to download"
+  },
+  "wmc_markingFoot": {
+    "message": "Marking clip $1: press O for the out point, Esc to discard"
+  },
+  "wmc_noSegmentsFoot": {
+    "message": "With no clips, only the full video can be downloaded"
+  },
+  "wmc_drag": {
+    "message": "Drag"
   }
 }

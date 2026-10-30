@@ -459,6 +459,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         settle(wmcSubmit(message, sender));
         return true;
     }
+    // 浮窗上的任务胶囊：打开任务面板并切到它，已打开就直接切过去。
+    if (message.Message === "wmcOpenPanel") {
+        settle((async () => {
+            await wmcEnsurePanel(true);
+            const { wmcPanelTabId } = await chrome.storage.session.get("wmcPanelTabId");
+            const tab = await chrome.tabs.update(wmcPanelTabId, { active: true });
+            await chrome.windows.update(tab.windowId, { focused: true });
+            return { ok: true };
+        })());
+        return true;
+    }
     sendResponse({ ok: false, error: "unknown" });
     return true;
 });
