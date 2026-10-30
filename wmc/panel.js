@@ -1,5 +1,5 @@
 // [WMC] SPEC-001 T6：任务面板——平铺列表 + 执行宿主（一次一个任务，按提交顺序）。
-// 队列与状态只有一份来源：chrome.storage.session 的 wmcJobs。本文件不读写 cacheData。
+// 队列与状态只有一份来源：chrome.storage.local 的 wmcJobs。本文件不读写 cacheData。
 (() => {
     const SEG_COLORS = ["#3b82f6", "#f97316", "#22c55e"];
     const STATUS_KEYS = {
@@ -26,18 +26,29 @@
     let pumping = false;
 
     const readJobs = async () => {
-        const got = await chrome.storage.session.get("wmcJobs");
+        const got = await chrome.storage.local.get("wmcJobs");
         return Array.isArray(got.wmcJobs) ? got.wmcJobs : [];
     };
-    const writeJobs = (next) => chrome.storage.session.set({ wmcJobs: next });
+    // 面板页不执行 sw.js。截断规则与那边的 wmcCapJobs 相同：排队中和下载中不删。
+    const WMC_JOB_LIMIT = 300;
+    const wmcCapJobs = (jobs) => {
+        const kept = jobs.filter((job) => job.status === "queued" || job.status === "running");
+        const ended = jobs.filter((job) => job.status !== "queued" && job.status !== "running")
+            .sort((a, b) => a.createdAt - b.createdAt);
+        const room = Math.max(0, WMC_JOB_LIMIT - kept.length);
+        return [...kept, ...ended.slice(ended.length - room)];
+    };
+    const writeJobs = (next) => chrome.storage.local.set({ wmcJobs: wmcCapJobs(next) });
     const patch = (id, fields) => navigator.locks.request("wmcJobs", async () => {
         const next = (await readJobs()).map((job) => (job.id === id ? { ...job, ...fields } : job));
         await writeJobs(next);
     });
-    // 进度按整百分点落盘，避免每个 Range 批次都写一次 storage。
+    // 进度落盘：同一任务距上次写入不足 1 秒就跳过，界面读的是内存里的最新值。
+    const progressWritten = new Map();
     const patchProgress = async (id, progress) => {
-        const job = (await readJobs()).find((item) => item.id === id);
-        if (!job || Math.round(job.progress * 100) === Math.round(progress * 100)) return;
+        const now = Date.now();
+        if (now - (progressWritten.get(id) || 0) < 1000) return;
+        progressWritten.set(id, now);
         await patch(id, { progress });
     };
 
@@ -122,7 +133,7 @@
     async function run(job) {
         const ac = new AbortController();
         running = ac;
-        await patch(job.id, { status: "running", progress: 0, error: null });
+        await patch(job.id, { status: "running", progress: 0, error: null, startedAt: Date.now() });
         try {
             // setRequestHeaders 作用于调用方自己的标签页，所以必须在面板页设置、再在面板页 fetch。
             await new Promise((resolve) => setRequestHeaders(job.requestHeaders || {}, resolve));
@@ -249,12 +260,24 @@
     });
 
     (async () => {
-        chrome.storage.session.onChanged.addListener((changes) => {
-            if (!changes.wmcJobs && !changes.wmcHandoffs) return;
-            if (changes.wmcJobs) jobs = changes.wmcJobs.newValue || [];
-            if (changes.wmcHandoffs) handoffs = changes.wmcHandoffs.newValue || [];
+        chrome.storage.local.onChanged.addListener((changes) => {
+            if (!changes.wmcJobs) return;
+            jobs = changes.wmcJobs.newValue || [];
             render();
             if (jobs.some((job) => job.status === "queued")) pump();
+        });
+        chrome.storage.session.onChanged.addListener((changes) => {
+            if (!changes.wmcHandoffs) return;
+            handoffs = changes.wmcHandoffs.newValue || [];
+            render();
+        });
+        // 面板是执行宿主：上次关掉时留在排队或下载中的任务已经没有人在跑，标为已中断再开始。
+        await navigator.locks.request("wmcJobs", async () => {
+            const stored = await readJobs();
+            if (stored.some((job) => UNFINISHED.includes(job.status))) {
+                await writeJobs(stored.map((job) =>
+                    UNFINISHED.includes(job.status) ? { ...job, status: "interrupted", progress: 0 } : job));
+            }
         });
         jobs = await readJobs();
         handoffs = (await chrome.storage.session.get("wmcHandoffs")).wmcHandoffs || [];

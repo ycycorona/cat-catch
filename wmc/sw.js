@@ -161,10 +161,33 @@ async function wmcResolveMedia(tabId, url, duration, flags) {
     };
 }
 
+// 任务记录在 storage.local。最多留 300 条：从 createdAt 最旧的已结束任务删起，排队中和下载中不删。
+const WMC_JOB_LIMIT = 300;
+const wmcCapJobs = (jobs) => {
+    const kept = jobs.filter((job) => job.status === "queued" || job.status === "running");
+    const ended = jobs.filter((job) => job.status !== "queued" && job.status !== "running")
+        .sort((a, b) => a.createdAt - b.createdAt);
+    const room = Math.max(0, WMC_JOB_LIMIT - kept.length);
+    return [...kept, ...ended.slice(ended.length - room)];
+};
+
 const wmcReadJobs = async () => {
-    const got = await chrome.storage.session.get("wmcJobs");
+    const got = await chrome.storage.local.get("wmcJobs");
     return Array.isArray(got.wmcJobs) ? got.wmcJobs : [];
 };
+
+// 一次性：旧版本把任务放在 session 里，并入 local 后删掉，避免重启后又迁一次。
+const wmcMigrateJobs = async () => {
+    const { wmcJobs } = await chrome.storage.session.get("wmcJobs");
+    if (!Array.isArray(wmcJobs)) return;
+    await navigator.locks.request("wmcJobs", async () => {
+        const local = await wmcReadJobs();
+        const ids = new Set(local.map((job) => job.id));
+        await chrome.storage.local.set({ wmcJobs: wmcCapJobs([...local, ...wmcJobs.filter((job) => !ids.has(job.id))]) });
+        await chrome.storage.session.remove("wmcJobs");
+    });
+};
+wmcMigrateJobs();
 
 // 面板单例：按面板 URL 复用已打开的标签页。记下标签页 id，关闭时据此把未完成任务标为已中断。
 async function wmcEnsurePanel(active = true) {
@@ -185,7 +208,7 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
         const jobs = await wmcReadJobs();
         const next = jobs.map((job) =>
             job.status === "queued" || job.status === "running" ? { ...job, status: "interrupted", progress: 0 } : job);
-        await chrome.storage.session.set({ wmcJobs: next });
+        await chrome.storage.local.set({ wmcJobs: wmcCapJobs(next) });
     });
 });
 
@@ -398,14 +421,14 @@ async function wmcSubmit(message, sender) {
     await navigator.locks.request("wmcJobs", async () => {
         const jobs = await wmcReadJobs();
         jobs.push(...submitted);
-        await chrome.storage.session.set({ wmcJobs: jobs });
+        await chrome.storage.local.set({ wmcJobs: wmcCapJobs(jobs) });
     });
     await wmcEnsurePanel();
     return { ok: true, ids: submitted.map((job) => job.id) };
 }
 
 // session storage 默认不对内容脚本开放，只推送任务快照，不扩大 storage 的访问级别。
-chrome.storage.session.onChanged.addListener(async (changes) => {
+chrome.storage.local.onChanged.addListener(async (changes) => {
     if (!changes.wmcJobs) return;
     const tabs = await chrome.tabs.query({});
     const jobs = await wmcReadJobs();
