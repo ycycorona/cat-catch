@@ -284,6 +284,21 @@
             button.studio { width: auto; height: 26px; padding: 0 8px; border: 1px solid #475569;
                 white-space: nowrap; flex: none; font-size: 12px; }
             button.studio[aria-pressed="true"] { border-color: #93c5fd; color: #93c5fd; }
+            .bar.studio-on button.studio { display: none; }
+            .sessions { position: relative; display: none; align-items: center; gap: 4px; flex: none; }
+            .bar.studio-on .sessions { display: inline-flex; }
+            button.session-new, button.session-resume { width: auto; height: 26px; padding: 0 8px;
+                border: 1px solid #475569; white-space: nowrap; flex: none; font-size: 12px; }
+            button.session-new[hidden] { display: none; }
+            .standard button.session-new, .standard button.session-resume { height: 22px; padding: 0 6px; font-size: 11px; }
+            .session-menu { position: absolute; z-index: 8; right: 0; bottom: calc(100% + 6px); width: 280px;
+                max-height: 240px; overflow: auto; padding: 4px; background: #111827; border: 1px solid #475569;
+                border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.45); }
+            .session-menu[hidden] { display: none; }
+            .session-menu button { display: flex; width: 100%; height: auto; min-height: 28px; padding: 6px 8px;
+                justify-content: flex-start; text-align: left; white-space: normal; line-height: 1.35; font-size: 12px; }
+            .session-menu button[aria-current="true"] { outline: 1px solid #93c5fd; }
+            .session-menu .empty { padding: 6px 8px; color: #9ca3af; font-size: 12px; }
             .bar.studio-on { border-radius: 10px 10px 0 0; }
             .controls { position: relative; }
             .keys { position: absolute; z-index: 6; top: calc(100% + 6px); left: 148px; width: 300px; padding: 10px 12px;
@@ -303,7 +318,7 @@
             .ticks { position: absolute; bottom: 0; left: 0; right: 0; justify-content: space-between;
                 pointer-events: none; color: #9ca3af; font: 10px ui-monospace, Consolas, monospace; }
             .standard .ticks { display: flex; }
-            .add-wrap { position: relative; display: flex; }
+            .add-wrap { position: relative; display: flex; align-items: center; gap: 4px; }
             .add.is-disabled { opacity: .4; cursor: not-allowed; background: none; }
             .add.is-disabled:hover { background: none; }
             .poptip { display: none; position: absolute; z-index: 6; left: 50%; bottom: calc(100% + 8px);
@@ -391,7 +406,7 @@
                     </dl>
                 </div>
                 <div class="track"><div class="rail"></div><div class="head"></div><div class="ticks"></div></div>
-                <span class="add-wrap"><button class="add" type="button">＋</button></span>
+                <span class="add-wrap"><span class="sessions"><button class="session-resume" type="button" aria-haspopup="menu" aria-expanded="false"></button><button class="session-new" type="button" hidden></button><div class="session-menu" hidden role="menu"></div></span><button class="add" type="button">＋</button></span>
                 <button class="dl" type="button">↓</button>
                 <span class="badge" role="status" aria-live="polite"></span>
                 <button class="view" type="button">↗</button>
@@ -565,6 +580,42 @@
             });
         };
         const segments = [null, null]; // 槽位固定段色，删除后复用空槽；标准视图按需增加。
+        // 打开浮窗就是一条新会话，不把上次的分段铺回时间轴。有完整分段才写入。
+        let sessionId = globalThis.WmcSessions?.freshId() || String(Date.now());
+        let sessionMediaUrl = video.currentSrc;
+        let sessionDirty = false;
+        let sessionTimer = 0;
+        const sessionSnapshot = () => ({
+            id: sessionId,
+            savedAt: Date.now(),
+            origin: location.origin,
+            pageUrl: location.href,
+            pageTitle: document.title,
+            mediaUrl: sessionMediaUrl,
+            mediaTitle: media.title || document.title,
+            duration: Number.isFinite(video.duration) ? video.duration : sourceDuration,
+            segments: segments.filter(Boolean).map((seg) => ({ start: seg.start, end: seg.end })),
+        });
+        const flushSession = () => {
+            clearTimeout(sessionTimer);
+            if (!sessionDirty) return;
+            sessionDirty = false;
+            globalThis.WmcSessions?.save(sessionSnapshot()).catch(() => {});
+        };
+        const touchSession = () => {
+            sessionDirty = true;
+            clearTimeout(sessionTimer);
+            sessionTimer = setTimeout(flushSession, 400);
+        };
+        const rotateSession = () => {
+            flushSession();
+            sessionId = globalThis.WmcSessions?.freshId() || String(Date.now());
+            sessionMediaUrl = video.currentSrc;
+            sessionDirty = false;
+        };
+        let sessionMenuEl = null;
+        let closeSessionMenu = () => {};
+        window.addEventListener("pagehide", flushSession, { signal });
         let edgeDrag = null;
         let bodyDrag = null;
         const edgeRange = (seg) => {
@@ -650,6 +701,8 @@
                 if (selectedSeg === index) selectedSeg = -1;
                 editorRows[index].querySelectorAll("input").forEach((input) => input.removeAttribute("aria-invalid"));
                 showHint("");
+                touchSession();
+                flushSession();
                 render();
             };
             del.addEventListener("click", (e) => {
@@ -679,6 +732,7 @@
                     if (!seg || !(video.duration > 0)) return;
                     if (key === "start") seg.start = clamp(value, 0, Math.max(0, seg.end - 0.001));
                     else seg.end = clamp(value, Math.min(video.duration, seg.start + 0.001), video.duration);
+                    touchSession();
                     render();
                 };
                 edge.addEventListener("pointerdown", (e) => {
@@ -694,6 +748,7 @@
                         window.removeEventListener("pointercancel", up);
                         if (edgeDrag === edge) edgeDrag = null;
                         if (!edge.matches(":hover")) closeTip();
+                        flushSession();
                     };
                     window.addEventListener("pointermove", move, { signal });
                     window.addEventListener("pointerup", up, { signal });
@@ -732,12 +787,14 @@
                     const next = clamp(originStart + (ev.clientX - originX) / rect.width * video.duration, 0, Math.max(0, video.duration - length));
                     current.start = next;
                     current.end = next + length;
+                    touchSession();
                     render();
                 };
                 const up = () => {
                     window.removeEventListener("pointermove", move);
                     window.removeEventListener("pointerup", up);
                     window.removeEventListener("pointercancel", up);
+                    flushSession();
                     if (bodyDrag === el) bodyDrag = null;
                     delete el.dataset.tip;
                     segPop.textContent = "";
@@ -778,6 +835,7 @@
                     const value = detailTime(ev.clientX);
                     if (key === "start") seg.start = clamp(value, 0, Math.max(0, seg.end - 0.001));
                     else seg.end = clamp(value, Math.min(video.duration, seg.start + 0.001), video.duration);
+                    touchSession();
                     render();
                     if (spritesOn()) showPreview(ev.clientX, value);
                 };
@@ -785,6 +843,7 @@
                     window.removeEventListener("pointermove", move);
                     window.removeEventListener("pointerup", up);
                     window.removeEventListener("pointercancel", up);
+                    flushSession();
                 };
                 window.addEventListener("pointermove", move, { signal });
                 window.addEventListener("pointerup", up, { signal });
@@ -810,6 +869,7 @@
                     const next = clamp(originStart + (ev.clientX - originX) / width * span(), 0, Math.max(0, video.duration - length));
                     current.start = next;
                     current.end = next + length;
+                    touchSession();
                     render();
                     if (spritesOn()) showPreview(ev.clientX, detailTime(ev.clientX));
                 };
@@ -817,6 +877,7 @@
                     window.removeEventListener("pointermove", move);
                     window.removeEventListener("pointerup", up);
                     window.removeEventListener("pointercancel", up);
+                    flushSession();
                 };
                 window.addEventListener("pointermove", move, { signal });
                 window.addEventListener("pointerup", up, { signal });
@@ -855,6 +916,8 @@
                     segments[index] = next;
                     inputs.forEach((field) => { field.value = stamp(next[field.dataset.field]); });
                     seekField();
+                    touchSession();
+                    flushSession();
                     render();
                 };
                 input.addEventListener("focus", () => { pickSegment(index); seekField(); });
@@ -1285,6 +1348,7 @@
         };
         const exitStudio = () => {
             if (!studio) return;
+            closeSessionMenu();
             const back = studioReturnStandard;
             studio = false;
             bar.classList.remove("studio-on");
@@ -1620,6 +1684,8 @@
                 placeTip();
             }
             add.removeAttribute("title");
+            const sessionNew = root.querySelector(".session-new");
+            if (sessionNew) sessionNew.hidden = !segments.some(Boolean);
             if (invalidInputs()) showHint(msg("wmc_invalidSegmentTime"));
             renderBadge();
             syncFrame();
@@ -1628,6 +1694,119 @@
         const showHint = (text) => {
             hint.textContent = text;
         };
+
+        const sessionNew = root.querySelector(".session-new");
+        const sessionResume = root.querySelector(".session-resume");
+        sessionMenuEl = root.querySelector(".session-menu");
+        sessionNew.textContent = msg("wmc_sessionNew");
+        sessionNew.title = msg("wmc_sessionNew");
+        sessionNew.setAttribute("aria-label", msg("wmc_sessionNew"));
+        sessionResume.textContent = msg("wmc_sessionResume");
+        sessionResume.title = msg("wmc_sessionResume");
+        sessionResume.setAttribute("aria-label", msg("wmc_sessionResume"));
+        let sessionMenuToken = 0;
+        closeSessionMenu = () => {
+            sessionMenuToken += 1;
+            sessionMenuEl.hidden = true;
+            sessionResume.setAttribute("aria-expanded", "false");
+        };
+        const beginSession = () => {
+            flushSession();
+            sessionId = globalThis.WmcSessions?.freshId() || String(Date.now());
+            sessionMediaUrl = video.currentSrc;
+            sessionDirty = false;
+            start = null;
+            selectedSeg = -1;
+            segments.fill(null);
+            rows.querySelectorAll("input").forEach((input) => input.removeAttribute("aria-invalid"));
+            showHint("");
+            closeSessionMenu();
+            render();
+        };
+        const loadSession = (record) => {
+            const fitted = globalThis.WmcSessions?.clipSegments(record.segments, video.duration) || [];
+            if (!fitted.length) {
+                showHint(msg("wmc_sessionMismatch"));
+                closeSessionMenu();
+                return;
+            }
+            flushSession();
+            sessionId = record.id;
+            sessionMediaUrl = video.currentSrc;
+            sessionDirty = false;
+            while (segments.length < fitted.length) {
+                segments.push(null);
+                createSlot(segments.length - 1);
+            }
+            for (let i = 0; i < segments.length; i++) {
+                segments[i] = fitted[i] ? { start: fitted[i].start, end: fitted[i].end } : null;
+                editorRows[i]?.querySelectorAll("input").forEach((input) => input.removeAttribute("aria-invalid"));
+            }
+            start = null;
+            selectedSeg = 0;
+            showHint("");
+            closeSessionMenu();
+            video.currentTime = fitted[0].start;
+            const span = ensureView().e - ensureView().s;
+            const begin = fitted[0].start;
+            if (begin < ensureView().s || fitted[0].end > ensureView().e) setWindow(begin - span * 0.2, begin - span * 0.2 + span);
+            else render();
+            touchSession();
+            flushSession();
+        };
+        const sessionLabel = (item) => {
+            const when = new Date(item.savedAt).toLocaleString(undefined, {
+                month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit",
+            });
+            const count = chrome.i18n.getMessage("wmc_sessionSegments", String(item.segments.length));
+            const name = item.mediaTitle || item.pageTitle;
+            return name ? `${when} · ${count} · ${name}` : `${when} · ${count}`;
+        };
+        const openMenu = async () => {
+            const token = ++sessionMenuToken;
+            sessionMenuEl.hidden = false;
+            sessionResume.setAttribute("aria-expanded", "true");
+            sessionMenuEl.replaceChildren();
+            let items = [];
+            try {
+                items = globalThis.WmcSessions ? await globalThis.WmcSessions.list(location.origin) : [];
+            } catch { items = []; }
+            if (token !== sessionMenuToken) return;
+            sessionMenuEl.replaceChildren();
+            if (!items.length) {
+                const empty = document.createElement("div");
+                empty.className = "empty";
+                empty.textContent = msg("wmc_sessionEmpty");
+                sessionMenuEl.append(empty);
+                return;
+            }
+            for (const item of items) {
+                const button = document.createElement("button");
+                button.type = "button";
+                button.setAttribute("role", "menuitem");
+                if (item.id === sessionId) button.setAttribute("aria-current", "true");
+                button.textContent = sessionLabel(item);
+                button.addEventListener("click", () => loadSession(item));
+                sessionMenuEl.append(button);
+            }
+        };
+        sessionNew.addEventListener("click", beginSession);
+        // 只在 click 打开。pointerdown 时打开的话，同一次点击冒泡到 window 会立刻关掉。
+        sessionResume.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (sessionMenuEl.hidden) openMenu();
+            else closeSessionMenu();
+        });
+        root.addEventListener("pointerdown", (event) => {
+            if (sessionMenuEl.hidden || event.target.closest(".sessions")) return;
+            closeSessionMenu();
+        }, { signal });
+        // 点在浮窗上时，事件越过关闭的 shadow 后 target 是 host。
+        window.addEventListener("pointerdown", (event) => {
+            if (sessionMenuEl.hidden || event.target === host || (event.target instanceof Node && host.contains(event.target))) return;
+            closeSessionMenu();
+        }, { signal });
 
         const setView = (next) => {
             const rect = host.getBoundingClientRect();
@@ -1706,6 +1885,8 @@
             segments[pendingSlot] = { start, end: now };
             start = null;
             showHint("");
+            touchSession();
+            flushSession();
             if (standard) rows.scrollTop = rows.scrollHeight;
             render();
         };
@@ -1717,6 +1898,8 @@
                 const begin = Math.min(Math.max(0, now), Math.max(0, video.duration - .001));
                 segments[index] = { start: begin, end: Math.min(video.duration, begin + 15) };
                 showHint("");
+                touchSession();
+                flushSession();
                 const v = ensureView();
                 if (begin < v.s || begin > v.e) setWindow(begin - (v.e - v.s) * 0.2, begin + (v.e - v.s) * 0.8);
                 else render();
@@ -1731,6 +1914,8 @@
                 segments[pendingSlot] = { start, end: Math.min(now, video.duration) };
                 start = null;
                 showHint("");
+                touchSession();
+                flushSession();
             }
             // 终点 ≤ 起点：不生成选段，起点保持待定
             render();
@@ -1878,6 +2063,7 @@
                 // [WMC] 广告/正文共用 video 时丢弃旧能力、未提交选段和异步响应。
                 if (source !== video.currentSrc || type === "emptied" || type === "loadstart" || type === "encrypted" ||
                     (meta && Number.isFinite(video.duration) && Math.abs(video.duration - sourceDuration) > 2)) {
+                    rotateSession();
                     source = video.currentSrc;
                     sourceDuration = video.duration;
                     resolveVersion += 1;
@@ -1932,6 +2118,7 @@
                 ev.preventDefault();
                 ev.stopPropagation();
                 if (!keys.hidden) toggleKeys(false);
+                else if (sessionMenuEl && !sessionMenuEl.hidden) closeSessionMenu();
                 else exitStudio();
                 return;
             }
@@ -1962,6 +2149,6 @@
                     fit(rect.left, rect.top);
                 }
             },
-            remove: () => { exitStudio(); events.abort(); host.remove(); } };
+            remove: () => { flushSession(); exitStudio(); events.abort(); host.remove(); } };
     }
 })();

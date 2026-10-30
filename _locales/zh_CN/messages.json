@@ -1260,5 +1260,20 @@
   },
   "wmc_studioMode": {
     "message": "工作室模式"
+  },
+  "wmc_sessionNew": {
+    "message": "新会话"
+  },
+  "wmc_sessionResume": {
+    "message": "恢复"
+  },
+  "wmc_sessionEmpty": {
+    "message": "这个网站还没有保存的分段"
+  },
+  "wmc_sessionMismatch": {
+    "message": "这段记录放不进当前视频"
+  },
+  "wmc_sessionSegments": {
+    "message": "$1 段"
   }
 }

@@ -1116,5 +1116,20 @@
   },
   "wmc_studioMode": {
     "message": "スタジオモード"
+  },
+  "wmc_sessionNew": {
+    "message": "新規"
+  },
+  "wmc_sessionResume": {
+    "message": "再開"
+  },
+  "wmc_sessionEmpty": {
+    "message": "このサイトには保存された区間がありません"
+  },
+  "wmc_sessionMismatch": {
+    "message": "この保存は現在の動画に収まりません"
+  },
+  "wmc_sessionSegments": {
+    "message": "$1 区間"
   }
 }

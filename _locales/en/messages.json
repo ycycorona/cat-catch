@@ -1260,5 +1260,20 @@
   },
   "wmc_studioMode": {
     "message": "Studio mode"
+  },
+  "wmc_sessionNew": {
+    "message": "New"
+  },
+  "wmc_sessionResume": {
+    "message": "Resume"
+  },
+  "wmc_sessionEmpty": {
+    "message": "No saved clips for this site"
+  },
+  "wmc_sessionMismatch": {
+    "message": "This save does not fit the current video"
+  },
+  "wmc_sessionSegments": {
+    "message": "$1 clips"
   }
 }

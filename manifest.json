@@ -87,6 +87,7 @@
         "http://*/*"
       ],
       "js": [
+        "wmc/sessions.js",
         "wmc/overlay.js"
       ],
       "run_at": "document_idle",
