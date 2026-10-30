@@ -105,30 +105,136 @@ async function wmcResolveHls(tabId, duration) {
     return { ...media, ...images, selectable: true };
 }
 
-// [WMC] 无 MPD 的 Bilibili DASH 由播放器数据确认；.m4s 本身也可能属于 HLS。
-async function wmcKnownDash(tabId, url, duration, frameId) {
-    if (!/^blob:https:\/\/(?:[\w-]+\.)*bilibili\.com\//i.test(url)) return false;
+function wmcFindCache(tabId, url) {
+    return wmcCachedMedia(tabId, url)
+        || ((self.cacheData && self.cacheData[tabId]) || []).find((item) => wmcSameResource(item.url, url))
+        || null;
+}
+
+// [WMC] 无 MPD 的 Bilibili DASH：视频、音频是两条地址。能读到这两条就按分片选段。
+// .m4s 本身也可能属于 HLS，所以只认当前 frame 的播放器数据，不凭扩展名猜。
+async function wmcResolveDash(tabId, url, duration, flags) {
+    if (!/^blob:https:\/\/(?:[\w-]+\.)*bilibili\.com\//i.test(url)) return null;
+    let described = null;
     try {
         const [probe] = await chrome.scripting.executeScript({
-            target: { tabId, frameIds: [frameId] },
+            target: { tabId, frameIds: [flags?.frameId ?? 0] },
             world: "MAIN",
             func: (src, seconds) => {
-                const dash = window.__playinfo__?.data?.dash;
-                if (dash?.video?.length && dash?.audio?.length &&
-                    Math.abs(dash.duration - seconds) <= 2 &&
-                    [...document.querySelectorAll("video")].some((video) =>
-                        video.currentSrc === src && Math.abs(video.duration - seconds) <= 2)) return true;
-                const player = window.player?.__core?.()?.player;
-                const video = player?.getVideoElement?.();
-                return !!(video?.currentSrc === src && Math.abs(video.duration - seconds) <= 2 &&
-                    player.getTracksFor("video").length && player.getTracksFor("audio").length);
+                const playing = [...document.querySelectorAll("video")].find((video) =>
+                    video.currentSrc === src && Math.abs(video.duration - seconds) <= 2);
+                if (!playing) return null;
+                const take = (item) => {
+                    const address = item && (item.baseUrl || item.base_url || item.url);
+                    if (typeof address !== "string" || !/^https?:/i.test(address)) return null;
+                    const base = item.SegmentBase || item.segment_base || item.segmentBase || {};
+                    return {
+                        url: address,
+                        init: base.Initialization || base.initialization || null,
+                        index: base.indexRange || base.index_range || null,
+                    };
+                };
+                const info = window.__playinfo__?.data;
+                const sides = (dash) => {
+                    if (!dash?.video?.length || !dash?.audio?.length) return null;
+                    let video = dash.video.find((item) => item.id === info?.quality) || null;
+                    let audio = null;
+                    try {
+                        const player = window.player?.__core?.()?.player;
+                        const match = (kind, list) => {
+                            const tracks = player?.getTracksFor?.(kind) || [];
+                            const selected = tracks.find((track) => track.selected) || tracks[0];
+                            const selectedUrl = selected?.baseUrl || selected?.url;
+                            if (!selectedUrl) return null;
+                            return list.find((item) => (item.baseUrl || item.base_url) === selectedUrl) || null;
+                        };
+                        video = match("video", dash.video) || video;
+                        audio = match("audio", dash.audio) || audio;
+                    } catch (e) { /* 用下面正在请求的那条 */ }
+                    const latest = new Map();
+                    for (const entry of performance.getEntriesByType("resource")) {
+                        if (!/\.m4s(\?|$)/i.test(entry.name)) continue;
+                        try { latest.set(new URL(entry.name).pathname, entry.startTime); } catch (e) { /* 跳过这条记录 */ }
+                    }
+                    const pick = (list, current) => {
+                        if (take(current)) return current;
+                        let best = null;
+                        let when = -1;
+                        for (const item of list) {
+                            const address = item && (item.baseUrl || item.base_url || item.url);
+                            if (typeof address !== "string") continue;
+                            let stamp = null;
+                            try { stamp = latest.get(new URL(address).pathname); } catch (e) { stamp = null; }
+                            if (stamp == null || stamp < when) continue;
+                            best = item;
+                            when = stamp;
+                        }
+                        return best || list[0];
+                    };
+                    const videoSide = take(pick(dash.video, video));
+                    const audioSide = take(pick(dash.audio, audio));
+                    if (!videoSide || !audioSide) return null;
+                    return {
+                        videoUrl: videoSide.url,
+                        audioUrl: audioSide.url,
+                        videoInit: videoSide.init,
+                        videoIndex: videoSide.index,
+                        audioInit: audioSide.init,
+                        audioIndex: audioSide.index,
+                    };
+                };
+                if (info?.dash?.video?.length && info.dash.audio?.length && Math.abs((info.dash.duration || 0) - seconds) <= 2) {
+                    const got = sides(info.dash);
+                    if (got) return got;
+                }
+                try {
+                    const player = window.player?.__core?.()?.player;
+                    const video = player?.getVideoElement?.();
+                    if (!video || video.currentSrc !== src || Math.abs(video.duration - seconds) > 2) return null;
+                    const got = sides(player.getSource?.());
+                    if (got) return got;
+                    if (!player.getTracksFor?.("video")?.length || !player.getTracksFor?.("audio")?.length) return null;
+                    const address = (kind) => {
+                        const tracks = player.getTracksFor(kind) || [];
+                        const selected = tracks.find((track) => track.selected) || tracks[0];
+                        const value = selected?.baseUrl || selected?.url;
+                        return typeof value === "string" && /^https?:/i.test(value) ? value : null;
+                    };
+                    return {
+                        videoUrl: address("video"),
+                        audioUrl: address("audio"),
+                        videoInit: null,
+                        videoIndex: null,
+                        audioInit: null,
+                        audioIndex: null,
+                    };
+                } catch (e) {
+                    return null;
+                }
             },
             args: [url, duration],
         });
-        return probe?.result === true;
+        described = probe?.result || null;
     } catch (e) {
-        return false;
+        return null;
     }
+    if (!described) return null;
+    if (!described.videoUrl || !described.audioUrl) return { selectable: false, reason: WMC_REASON.unsupported };
+    const item = wmcFindCache(tabId, described.videoUrl) || wmcFindCache(tabId, described.audioUrl);
+    const pageUrl = flags?.pageUrl;
+    const requestHeaders = (item && item.requestHeaders) || (pageUrl ? { referer: pageUrl } : null);
+    return {
+        selectable: true,
+        kind: "dash",
+        videoUrl: described.videoUrl,
+        audioUrl: described.audioUrl,
+        videoInit: described.videoInit || null,
+        videoIndex: described.videoIndex || null,
+        audioInit: described.audioInit || null,
+        audioIndex: described.audioIndex || null,
+        requestHeaders,
+        initiator: (item && item.initiator) || pageUrl || null,
+    };
 }
 
 // http(s) 走 Range 探测，blob: 走 HLS 判定。DRM / srcObject 由内容脚本判定后作为入参传入。
@@ -137,10 +243,9 @@ async function wmcResolveMedia(tabId, url, duration, flags) {
     if (typeof url !== "string" || !url) return { selectable: false, reason: WMC_REASON.unknownSource };
     if (/^blob:/i.test(url)) {
         const media = await wmcResolveHls(tabId, duration);
-        if (media.reason === WMC_REASON.unknownSource &&
-            await wmcKnownDash(tabId, url, duration, flags?.frameId ?? 0)) {
-            return { selectable: false, reason: WMC_REASON.unsupported };
-        }
+        if (media.selectable) return media;
+        const dash = await wmcResolveDash(tabId, url, duration, flags);
+        if (dash) return dash;
         return media;
     }
     if (!/^https?:\/\//i.test(url)) return { selectable: false, reason: WMC_REASON.unknownSource };
@@ -393,7 +498,10 @@ async function wmcSubmit(message, sender) {
             !Number.isFinite(seg.start) || !Number.isFinite(seg.end) ||
             seg.start < 0 || seg.end <= seg.start || seg.end > message.duration) ||
         new Set(segments.map((seg) => seg.segIndex)).size !== segments.length) return { ok: false, error: "bad-range" };
-    const media = await wmcMediaFor(tab.id, message.url, message.duration, { frameId: sender.frameId });
+    const media = await wmcMediaFor(tab.id, message.url, message.duration, {
+        frameId: sender.frameId,
+        pageUrl: message.pageUrl || tab.url,
+    });
     if (!media.selectable) return { ok: false, error: media.reason || "not-selectable" };
     // 提交时整体快照（字段见 SPEC「Interfaces and data」），之后改选段不影响这条记录。
     const submitted = segments.map((seg) => ({
@@ -404,9 +512,15 @@ async function wmcSubmit(message, sender) {
         tabId: tab.id,
         mediaUrl: message.url,
         kind: media.kind,
-        sourceUrl: media.hlsUrl || message.url, // HLS 的 blob: 源用它存播放列表地址
+        sourceUrl: media.hlsUrl || media.videoUrl || message.url, // HLS 记播放列表；DASH 记视频地址
         requestHeaders: media.requestHeaders,
         initiator: media.initiator,
+        videoUrl: media.videoUrl || null,
+        audioUrl: media.audioUrl || null,
+        videoInit: media.videoInit || null,
+        videoIndex: media.videoIndex || null,
+        audioInit: media.audioInit || null,
+        audioIndex: media.audioIndex || null,
         segIndex: seg.segIndex,
         start: seg.start,
         end: seg.end,
@@ -449,7 +563,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         settle((async () => {
             const tabId = sender.tab && sender.tab.id;
             if (message.drm || message.mediaStream) return { selectable: false, kind: null, reason: WMC_REASON.unsupported };
-            const media = await wmcMediaFor(tabId, message.currentSrc || message.url, message.duration, { frameId: sender.frameId });
+            const media = await wmcMediaFor(tabId, message.currentSrc || message.url, message.duration, {
+                frameId: sender.frameId,
+                pageUrl: sender.tab && sender.tab.url,
+            });
             let imageCues = media.imageCues || [];
             let vttCues = [];
             if (typeof WmcSprites !== "undefined") {

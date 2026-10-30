@@ -138,7 +138,7 @@
             // setRequestHeaders 作用于调用方自己的标签页，所以必须在面板页设置、再在面板页 fetch。
             await new Promise((resolve) => setRequestHeaders(job.requestHeaders || {}, resolve));
             const onProgress = (p) => { patchProgress(job.id, p); };
-            // HLS 走独立模块（blob: 源用提交时记下的播放列表地址），MP4 路径不变。
+            // HLS 用播放列表；DASH 是分开的视频、音频，按分片取再合成；其余仍是单文件 MP4。
             const out = job.kind === "hls"
                 ? await WmcHlsCut.cut({
                     playlistUrl: job.sourceUrl || job.mediaUrl,
@@ -147,13 +147,26 @@
                     signal: ac.signal,
                     onProgress,
                 })
-                : await WmcMp4Cut.cut({
-                    url: job.mediaUrl,
-                    start: job.start,
-                    end: job.end,
-                    signal: ac.signal,
-                    onProgress,
-                });
+                : job.kind === "dash"
+                    ? await WmcDashCut.cut({
+                        videoUrl: job.videoUrl,
+                        audioUrl: job.audioUrl,
+                        videoInit: job.videoInit,
+                        videoIndex: job.videoIndex,
+                        audioInit: job.audioInit,
+                        audioIndex: job.audioIndex,
+                        start: job.start,
+                        end: job.end,
+                        signal: ac.signal,
+                        onProgress,
+                    })
+                    : await WmcMp4Cut.cut({
+                        url: job.mediaUrl,
+                        start: job.start,
+                        end: job.end,
+                        signal: ac.signal,
+                        onProgress,
+                    });
             const blobUrl = URL.createObjectURL(out.blob);
             const fileName = await saveDownload(blobUrl, fileNameFor(job, out));
             setTimeout(() => URL.revokeObjectURL(blobUrl), 30000); // shortcut: 留时间给下载器读 blob，长任务可能堆积内存
@@ -271,12 +284,13 @@
             handoffs = changes.wmcHandoffs.newValue || [];
             render();
         });
-        // 面板是执行宿主：上次关掉时留在排队或下载中的任务已经没有人在跑，标为已中断再开始。
+        // 提交先把任务写成排队，再打开面板。排队的要接着跑。
+        // 只有上次面板关掉时还停在下载中的，才标成已中断。
         await navigator.locks.request("wmcJobs", async () => {
             const stored = await readJobs();
-            if (stored.some((job) => UNFINISHED.includes(job.status))) {
+            if (stored.some((job) => job.status === "running")) {
                 await writeJobs(stored.map((job) =>
-                    UNFINISHED.includes(job.status) ? { ...job, status: "interrupted", progress: 0 } : job));
+                    job.status === "running" ? { ...job, status: "interrupted", progress: 0 } : job));
             }
         });
         jobs = await readJobs();
