@@ -1124,7 +1124,7 @@
     "message": "再開"
   },
   "wmc_sessionEmpty": {
-    "message": "このサイトには保存された区間がありません"
+    "message": "このページには保存された区間がありません"
   },
   "wmc_sessionMismatch": {
     "message": "この保存は現在の動画に収まりません"

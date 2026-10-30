@@ -1124,7 +1124,7 @@
     "message": "Resume"
   },
   "wmc_sessionEmpty": {
-    "message": "No saved clips for this site"
+    "message": "No saved clips for this page"
   },
   "wmc_sessionMismatch": {
     "message": "This save does not fit the current video"

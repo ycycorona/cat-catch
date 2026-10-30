@@ -296,7 +296,8 @@
                 border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.45); }
             .session-menu[hidden] { display: none; }
             .session-menu button { display: flex; width: 100%; height: auto; min-height: 28px; padding: 6px 8px;
-                justify-content: flex-start; text-align: left; white-space: normal; line-height: 1.35; font-size: 12px; }
+                justify-content: flex-start; text-align: left; white-space: nowrap; overflow: hidden;
+                line-height: 1.35; font-size: 12px; }
             .session-menu button[aria-current="true"] { outline: 1px solid #93c5fd; }
             .session-menu .empty { padding: 6px 8px; color: #9ca3af; font-size: 12px; }
             .bar.studio-on { border-radius: 10px 10px 0 0; }
@@ -327,6 +328,7 @@
                 box-shadow: 0 4px 12px rgba(0, 0, 0, .35); }
             .poptip::after { content: ""; position: absolute; left: 50%; top: 100%; transform: translateX(-50%);
                 border: 5px solid transparent; border-top-color: #111827; }
+            .poptip.wrap { z-index: 9; box-sizing: border-box; white-space: normal; text-align: left; }
             .bar[data-tip] > .poptip:not(:empty) { display: block; }
             .edge[data-tip] > .poptip:not(:empty),
             .seg[data-tip] > .poptip:not(:empty) { display: block; }
@@ -1275,8 +1277,19 @@
         let tipText = () => "";
         const placeTip = () => {
             const barRect = bar.getBoundingClientRect();
+            if (!(barRect.width > 0)) return;
+            if (tip.classList.contains("wrap") && sessionMenuEl && !sessionMenuEl.hidden) {
+                const menuRect = sessionMenuEl.getBoundingClientRect();
+                tip.style.width = `${menuRect.width}px`;
+                tip.style.left = `${menuRect.left - barRect.left}px`;
+                tip.style.top = `${menuRect.top - barRect.top - 8}px`;
+                tip.style.bottom = "auto";
+                tip.style.transform = "translateY(-100%)";
+                return;
+            }
             const btn = tipTarget?.getBoundingClientRect();
-            if (!btn || !(barRect.width > 0)) return;
+            if (!btn) return;
+            tip.style.width = "";
             tip.style.left = `${btn.left + btn.width / 2 - barRect.left}px`;
             tip.style.bottom = "auto";
             tip.style.top = `${btn.top - barRect.top - 8}px`;
@@ -1286,7 +1299,11 @@
             if (open && tip.textContent) {
                 placeTip();
                 bar.dataset.tip = "open";
-            } else delete bar.dataset.tip;
+            } else {
+                tip.classList.remove("wrap");
+                tip.style.width = "";
+                delete bar.dataset.tip;
+            }
         };
         const bindTip = (button, text) => {
             const open = () => {
@@ -1709,6 +1726,7 @@
             sessionMenuToken += 1;
             sessionMenuEl.hidden = true;
             sessionResume.setAttribute("aria-expanded", "false");
+            if (tip.classList.contains("wrap")) showTip(false);
         };
         const beginSession = () => {
             flushSession();
@@ -1754,13 +1772,38 @@
             touchSession();
             flushSession();
         };
-        const sessionLabel = (item) => {
-            const when = new Date(item.savedAt).toLocaleString(undefined, {
-                month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit",
-            });
-            const count = chrome.i18n.getMessage("wmc_sessionSegments", String(item.segments.length));
-            const name = item.mediaTitle || item.pageTitle;
-            return name ? `${when} · ${count} · ${name}` : `${when} · ${count}`;
+        const nameMeasure = document.createElement("canvas").getContext("2d");
+        // 按能放下的宽度从中间切开，开头和结尾尽量留一样多。短名原样返回。
+        const middleEllipsis = (text, maxWidth) => {
+            const widthOf = (value) => nameMeasure.measureText(value).width;
+            if (widthOf(text) <= maxWidth) return text;
+            const ellipsis = "…";
+            let best = ellipsis;
+            let low = 0;
+            let high = text.length;
+            while (low <= high) {
+                const keep = (low + high) >> 1;
+                const head = Math.ceil(keep / 2);
+                const tail = Math.floor(keep / 2);
+                const candidate = text.slice(0, head) + ellipsis + (tail ? text.slice(-tail) : "");
+                if (widthOf(candidate) <= maxWidth) { best = candidate; low = keep + 1; }
+                else high = keep - 1;
+            }
+            return best;
+        };
+        const bindNameTip = (button, name) => {
+            const open = () => {
+                tip.classList.add("wrap");
+                tipTarget = button;
+                tipText = () => name;
+                tip.textContent = name;
+                showTip(true);
+            };
+            const close = () => { if (tipTarget === button) showTip(false); };
+            button.addEventListener("pointerenter", open);
+            button.addEventListener("pointerleave", close);
+            button.addEventListener("focus", open);
+            button.addEventListener("blur", close);
         };
         const openMenu = async () => {
             const token = ++sessionMenuToken;
@@ -1769,7 +1812,7 @@
             sessionMenuEl.replaceChildren();
             let items = [];
             try {
-                items = globalThis.WmcSessions ? await globalThis.WmcSessions.list(location.origin) : [];
+                items = globalThis.WmcSessions ? await globalThis.WmcSessions.list(location.href) : [];
             } catch { items = []; }
             if (token !== sessionMenuToken) return;
             sessionMenuEl.replaceChildren();
@@ -1785,9 +1828,26 @@
                 button.type = "button";
                 button.setAttribute("role", "menuitem");
                 if (item.id === sessionId) button.setAttribute("aria-current", "true");
-                button.textContent = sessionLabel(item);
+                const when = new Date(item.savedAt).toLocaleString(undefined, {
+                    month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit",
+                });
+                const count = chrome.i18n.getMessage("wmc_sessionSegments", String(item.segments.length));
+                const name = item.mediaTitle || item.pageTitle;
+                const prefix = name ? `${when} · ${count} · ` : `${when} · ${count}`;
+                button.textContent = prefix;
                 button.addEventListener("click", () => loadSession(item));
                 sessionMenuEl.append(button);
+                let shown = "";
+                if (name) {
+                    const style = getComputedStyle(button);
+                    nameMeasure.font = style.font || `${style.fontSize} ${style.fontFamily}`;
+                    const pad = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+                    const room = button.clientWidth - pad - nameMeasure.measureText(prefix).width - 2;
+                    shown = middleEllipsis(name, Math.max(0, room));
+                    button.textContent = prefix + shown;
+                    if (shown !== name) bindNameTip(button, name);
+                }
+                button.setAttribute("aria-label", name ? prefix + name : prefix);
             }
         };
         sessionNew.addEventListener("click", beginSession);

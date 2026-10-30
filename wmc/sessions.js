@@ -1,8 +1,9 @@
-// 分段会话：每个网站最多 10 条。同一条会话反复编辑会覆盖自己，不会占新名额。
+// 分段会话：同一个页面地址最多 5 条，这台机器一共最多 200 条。同一条会话反复编辑会覆盖自己。
 // shortcut: 多标签同时改同一条时后写入的那次为准；不做逐次撤销。要保留编辑历史再改成快照。
 (function (root) {
     const KEY = "wmcClipSessions";
-    const LIMIT = 10;
+    const PER_URL = 5;
+    const GLOBAL = 200;
 
     const freshId = () => crypto.randomUUID();
 
@@ -24,6 +25,7 @@
     const normalizeRecord = (record) => {
         if (!record || typeof record.id !== "string" || !record.id) return null;
         if (typeof record.origin !== "string" || !record.origin) return null;
+        if (typeof record.pageUrl !== "string" || !record.pageUrl) return null;
         const segments = clipSegments(record.segments);
         if (!segments.length) return null;
         return {
@@ -39,25 +41,39 @@
         };
     };
 
-    // 空分段会删掉这条 id。其他网站的记录留着。
+    const byNewest = (a, b) => b.savedAt - a.savedAt || (a.id < b.id ? 1 : -1);
+
+    // 同一页面地址只留最近 5 条，整机再只留最近 200 条。空分段会删掉这条 id。
+    const cap = (list) => {
+        const byUrl = new Map();
+        for (const item of list) {
+            const bucket = byUrl.get(item.pageUrl) || [];
+            bucket.push(item);
+            byUrl.set(item.pageUrl, bucket);
+        }
+        const kept = [];
+        for (const bucket of byUrl.values()) {
+            bucket.sort(byNewest);
+            kept.push(...bucket.slice(0, PER_URL));
+        }
+        kept.sort(byNewest);
+        return kept.slice(0, GLOBAL);
+    };
+
     const upsert = (list, record) => {
         const id = record && typeof record.id === "string" ? record.id : "";
         const prev = (Array.isArray(list) ? list : []).map(normalizeRecord).filter(Boolean);
         const without = prev.filter((item) => item.id !== id);
         const next = normalizeRecord(record);
-        if (!next) return without;
-        const same = without.filter((item) => item.origin === next.origin);
-        const other = without.filter((item) => item.origin !== next.origin);
-        same.push(next);
-        same.sort((a, b) => b.savedAt - a.savedAt || (a.id < b.id ? 1 : -1));
-        return other.concat(same.slice(0, LIMIT));
+        if (!next) return cap(without);
+        return cap(without.concat(next));
     };
 
-    const listFor = (list, origin) => (Array.isArray(list) ? list : [])
+    const listFor = (list, pageUrl) => (Array.isArray(list) ? list : [])
         .map(normalizeRecord)
-        .filter((item) => item && item.origin === origin)
-        .sort((a, b) => b.savedAt - a.savedAt || (a.id < b.id ? 1 : -1))
-        .slice(0, LIMIT);
+        .filter((item) => item && item.pageUrl === pageUrl)
+        .sort(byNewest)
+        .slice(0, PER_URL);
 
     const readAll = async () => {
         const got = await chrome.storage.local.get(KEY);
@@ -70,13 +86,14 @@
 
     const api = {
         KEY,
-        LIMIT,
+        PER_URL,
+        GLOBAL,
         freshId,
         clipSegments,
         upsert,
         listFor,
-        async list(origin) {
-            return listFor(await readAll(), origin);
+        async list(pageUrl) {
+            return listFor(await readAll(), pageUrl);
         },
         async save(record) {
             await locked(async () => {

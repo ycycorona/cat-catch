@@ -1268,7 +1268,7 @@
     "message": "恢复"
   },
   "wmc_sessionEmpty": {
-    "message": "这个网站还没有保存的分段"
+    "message": "这个页面还没有保存的分段"
   },
   "wmc_sessionMismatch": {
     "message": "这段记录放不进当前视频"

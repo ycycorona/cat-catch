@@ -1124,7 +1124,7 @@
     "message": "恢復"
   },
   "wmc_sessionEmpty": {
-    "message": "這個網站還沒有儲存的分段"
+    "message": "這個頁面還沒有儲存的分段"
   },
   "wmc_sessionMismatch": {
     "message": "這段紀錄放不進目前的影片"
