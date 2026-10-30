@@ -1493,13 +1493,14 @@
             time.textContent = `${fmt(video.currentTime, hours)} / ${fmt(duration, hours)}`;
             time.style.width = `${fmt(duration, hours).length * 2 + 3}ch`;
             head.style.left = `${pct(video.currentTime, duration)}%`;
-            // 只在播放头自己走进窗口右侧十分之一时翻页。拖动选块时不跟，光标落在选块外面也不拉回来。
+            // 只在播放头从窗口内走进右侧十分之一时翻页。点到或拖到右侧不算走进；拖动选块时不跟。
             if (standard && windowView && duration > 0) {
                 const span = windowView.e - windowView.s;
                 const t = video.currentTime;
-                const advanced = followAt != null && t > followAt + 0.001;
-                if (!video.paused && !overviewScrub && !windowHold && advanced &&
-                    t >= windowView.s && t <= windowView.e && t > windowView.e - span * 0.1 && t < duration) {
+                const edge = windowView.e - span * 0.1;
+                const walkedIn = followAt != null && followAt >= windowView.s && followAt < edge &&
+                    t >= edge && t <= windowView.e && t - followAt < 1 && t < duration;
+                if (!video.paused && !overviewScrub && !windowHold && walkedIn) {
                     const s = clamp(t - span * 0.1, 0, Math.max(0, duration - span));
                     windowView = { s, e: s + span };
                 }
