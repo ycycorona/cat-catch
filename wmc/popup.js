@@ -50,6 +50,7 @@
             if (!candidates.length) throw new Error("wmc_noVideo");
             const result = await chrome.tabs.sendMessage(tabId, { Message: "wmcShowOverlay" }, { frameId: candidates[0].frameId });
             if (!result?.ok) throw new Error(result?.reason === "wmc_noVideo" ? "wmc_noVideo" : "wmc_cannotOpenOverlay");
+            window.close();
         } catch (failure) {
             showError(failure.message === "wmc_noVideo" ? "wmc_noVideo" : "wmc_cannotOpenOverlay");
         } finally {

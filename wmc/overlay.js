@@ -236,6 +236,11 @@
             .lab { color: #9ca3af; font-size: 11px; line-height: 14px; height: 14px; white-space: nowrap; }
             .axis.detail { align-items: end; }
             .axis.detail .lab { height: 26px; line-height: 26px; }
+            .detail-box { position: relative; }
+            .thumb { position: absolute; z-index: 8; overflow: hidden; pointer-events: none;
+                border-radius: 4px; background: #111827; box-shadow: 0 4px 12px rgba(0,0,0,.45); }
+            .thumb[hidden] { display: none; }
+            .thumb img { position: absolute; max-width: none; }
             .range { margin: 0 0 2px; color: #9ca3af; font: 10px/12px ui-monospace, Consolas, monospace;
                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             .ov, .plot { position: relative; border-radius: 3px; background: #1f2937; overflow: hidden; touch-action: none; }
@@ -391,7 +396,7 @@
                 </div>
                 <div class="axes">
                     <div class="axis"><span class="lab ov-lab"></span><div class="ov"><div class="ov-clip"><div class="ov-shade left"></div><div class="ov-shade right"></div><div class="ov-marks"></div><div class="ov-win"><i class="grip l" data-edge="l"></i><i class="grip r" data-edge="r"></i></div></div><div class="ohead"></div></div></div>
-                    <div class="axis detail"><span class="lab dt-lab"></span><div><div class="range"></div><div class="plot"><div class="ruler"></div><div class="lane"><div class="lane-clip"></div><div class="dhead"></div></div></div></div></div>
+                    <div class="axis detail"><span class="lab dt-lab"></span><div class="detail-box"><div class="range"></div><div class="plot"><div class="ruler"></div><div class="lane"><div class="lane-clip"></div><div class="dhead"></div></div></div><div class="thumb" hidden><img alt=""></div></div></div>
                 </div>
                 <div class="editor"><div class="editor-header"><span></span><span class="start-label"></span>
                     <span class="end-label"></span><span class="duration-label"></span><span></span></div><div class="rows"></div></div>
@@ -552,6 +557,7 @@
                 capability = !error && typeof response?.selectable === "boolean" ? response :
                     { selectable: false, reason: "wmc_reasonUnknownSource" };
                 showHint("");
+                refreshSprites();
                 render();
             });
         };
@@ -770,6 +776,7 @@
                     if (key === "start") seg.start = clamp(value, 0, Math.max(0, seg.end - 0.001));
                     else seg.end = clamp(value, Math.min(video.duration, seg.start + 0.001), video.duration);
                     render();
+                    if (spritesOn()) showPreview(ev.clientX, value);
                 };
                 const up = () => {
                     window.removeEventListener("pointermove", move);
@@ -801,6 +808,7 @@
                     current.start = next;
                     current.end = next + length;
                     render();
+                    if (spritesOn()) showPreview(ev.clientX, detailTime(ev.clientX));
                 };
                 const up = () => {
                     window.removeEventListener("pointermove", move);
@@ -872,7 +880,131 @@
             editorRows.push(row);
         };
         segments.forEach((_, index) => createSlot(index));
+        const thumb = root.querySelector(".thumb");
+        const thumbImg = thumb.querySelector("img");
+        const detailAxis = plot.closest(".axis");
+        let spriteCues = [];
+        let thumbUrl = "";
+        let thumbCue = null;
+        const spritesOn = () => standard && spriteCues.length > 0 && Number.isFinite(video.duration);
+        const hidePreview = () => { thumb.hidden = true; thumbCue = null; };
+        const placeThumb = (cue) => {
+            const nw = thumbImg.naturalWidth || cue.w || 160;
+            const nh = thumbImg.naturalHeight || cue.h || 90;
+            let cellW = cue.w;
+            let cellH = cue.h;
+            let ox = cue.x;
+            let oy = cue.y;
+            if (!(cellW > 0) && cue.cols > 1 && thumbImg.naturalWidth) {
+                cellW = thumbImg.naturalWidth / cue.cols;
+                cellH = thumbImg.naturalHeight / cue.rows;
+                ox = cue.col * cellW;
+                oy = cue.row * cellH;
+            }
+            if (!(cellW > 0)) { cellW = nw; cellH = nh; ox = 0; oy = 0; }
+            const scale = Math.min(1, 160 / cellW);
+            const dw = Math.max(1, Math.round(cellW * scale));
+            const dh = Math.max(1, Math.round(cellH * scale));
+            thumb.style.width = `${dw}px`;
+            thumb.style.height = `${dh}px`;
+            thumbImg.style.width = `${Math.round(nw * scale)}px`;
+            thumbImg.style.height = `${Math.round(nh * scale)}px`;
+            thumbImg.style.left = `${Math.round(-ox * scale)}px`;
+            thumbImg.style.top = `${Math.round(-oy * scale)}px`;
+            const box = plot.parentElement.getBoundingClientRect();
+            const axis = plot.getBoundingClientRect();
+            let left = lastPointerX - box.left - dw / 2;
+            left = clamp(left, axis.left - box.left, Math.max(axis.left - box.left, axis.right - box.left - dw));
+            thumb.style.left = `${left}px`;
+            thumb.style.top = `${plot.offsetTop - dh - 4}px`;
+        };
+        let lastPointerX = 0;
+        const showPreview = (clientX, time) => {
+            if (!spritesOn() || !globalThis.WmcSprites) return;
+            const cue = globalThis.WmcSprites.cueAt(spriteCues, time);
+            if (!cue) { hidePreview(); return; }
+            lastPointerX = clientX;
+            thumbCue = cue;
+            if (thumbUrl !== cue.url) {
+                thumbUrl = cue.url;
+                thumbImg.src = cue.url;
+            }
+            placeThumb(cue);
+            thumb.hidden = false;
+        };
+        thumbImg.addEventListener("load", () => { if (thumbCue) placeThumb(thumbCue); }, { signal });
+        thumbImg.addEventListener("error", () => {
+            if (!thumbCue || thumbImg.src !== thumbCue.url) return;
+            hidePreview();
+            thumbUrl = "";
+        }, { signal });
+        const liveThumb = (el) => {
+            let spec;
+            try { spec = JSON.parse(el.dataset.wmcThumb || ""); } catch (e) { return null; }
+            if (!spec || !(spec.pic > 0) || !(spec.col > 0) || !(spec.row > 0) || !(spec.width > 0) || !(spec.height > 0)) return null;
+            if (!Array.isArray(spec.urls) || !spec.urls.length || spec.urls.some((url) => /[{}]/.test(url))) return null;
+            return spec;
+        };
+        video.addEventListener("wmc-thumb", () => refreshSprites(), { signal });
+        const refreshSprites = () => {
+            if (!Number.isFinite(video.duration) || !(video.duration > 0)) {
+                spriteCues = [];
+                hidePreview();
+                return;
+            }
+            const api = globalThis.WmcSprites;
+            if (!api) { spriteCues = []; return; }
+            const live = liveThumb(video);
+            if (live) { spriteCues = api.cuesFromSpec(live, video.duration); return; }
+            for (const track of video.textTracks || []) {
+                if (track.kind === "metadata" && track.mode === "disabled") track.mode = "hidden";
+            }
+            const tracks = api.fromTracks(video);
+            if (tracks.length) { spriteCues = tracks; return; }
+            if (capability?.vttCues?.length) { spriteCues = capability.vttCues; return; }
+            if (capability?.imageCues?.length) { spriteCues = capability.imageCues; return; }
+            spriteCues = api.fromInline(video.ownerDocument, video.duration, [capability?.hlsUrl, video.currentSrc].filter(Boolean).join("\n"));
+            if (!spriteCues.length) hidePreview();
+        };
+        const watchMeta = (track) => {
+            if (!track || track.kind !== "metadata") return;
+            track.addEventListener("cuechange", () => refreshSprites(), { signal });
+        };
+        for (const track of video.textTracks || []) watchMeta(track);
+        video.textTracks?.addEventListener("addtrack", (ev) => {
+            watchMeta(ev.track);
+            refreshSprites();
+        }, { signal });
         const scrub = (e) => { if (video.duration > 0) { video.currentTime = detailTime(e.clientX); render(); } };
+        // 有雪碧图时移动只出预览；按下后位移不超过 3px 的松手才跳转。
+        const previewGesture = (e) => {
+            const originX = e.clientX;
+            const originY = e.clientY;
+            let moved = false;
+            showPreview(e.clientX, detailTime(e.clientX));
+            return {
+                move(ev) {
+                    if (!moved && Math.hypot(ev.clientX - originX, ev.clientY - originY) > 3) moved = true;
+                    showPreview(ev.clientX, detailTime(ev.clientX));
+                },
+                end(ev) {
+                    if (!moved && video.duration > 0) { video.currentTime = detailTime(ev.clientX); render(); }
+                    const rect = detailAxis.getBoundingClientRect();
+                    const inside = ev.clientX >= rect.left && ev.clientX <= rect.right &&
+                        ev.clientY >= rect.top && ev.clientY <= rect.bottom;
+                    if (inside) showPreview(ev.clientX, detailTime(ev.clientX));
+                    else hidePreview();
+                },
+            };
+        };
+        detailAxis.addEventListener("pointermove", (e) => {
+            if (!spritesOn() || e.buttons) return;
+            showPreview(e.clientX, detailTime(e.clientX));
+        }, { signal });
+        detailAxis.addEventListener("pointerleave", (e) => {
+            if (e.buttons) return;
+            hidePreview();
+        }, { signal });
         const watch = (el, down) => {
             el.addEventListener("pointerdown", (e) => {
                 if (e.button !== 0) return;
@@ -891,8 +1023,8 @@
                 window.addEventListener("pointercancel", up, { signal });
             });
         };
-        watch(dhead, () => ({ move: scrub }));
-        watch(ruler, () => ({ move: scrub, end: scrub }));
+        watch(dhead, (e) => spritesOn() ? previewGesture(e) : { move: scrub });
+        watch(ruler, (e) => spritesOn() ? previewGesture(e) : { move: scrub, end: scrub });
         watch(lane, (e) => {
             if (e.target.closest(".dhead, .dseg")) return null;
             let last = detailTime(e.clientX), moved = false;
@@ -902,6 +1034,7 @@
                     last = now;
                     if (Math.abs(delta) > 0.05) moved = true;
                     if (moved) { windowHold = true; const v = ensureView(); setWindow(v.s - delta, v.e - delta); }
+                    if (spritesOn()) showPreview(ev.clientX, detailTime(ev.clientX));
                 },
                 end(ev) {
                     windowHold = false;
@@ -989,6 +1122,7 @@
                 rows.scrollTop += ev.deltaY;
                 ev.preventDefault();
             }
+            if (ev.currentTarget === plot && spritesOn()) showPreview(ev.clientX, detailTime(ev.clientX));
         };
         plot.addEventListener("wheel", axisWheel(detailTime), { passive: false, signal });
         ov.addEventListener("wheel", axisWheel((x) => {
@@ -1443,6 +1577,8 @@
                 identity.prepend(handle);
                 identity.append(dl, badge, view, close);
             }
+            if (!standard) hidePreview();
+            else refreshSprites();
             render();
             if (docked) place();
             else fit(rect.left, rect.top);
@@ -1684,8 +1820,13 @@
                     segments.fill(null);
                     rows.querySelectorAll("input").forEach((input) => input.removeAttribute("aria-invalid"));
                     showHint("");
+                    spriteCues = [];
+                    hidePreview();
                 }
-                if (meta) sourceDuration = video.duration;
+                if (meta) {
+                    sourceDuration = video.duration;
+                    refreshSprites();
+                }
                 const retryNow = retryable() && Date.now() - resolveAt > 3000 && (meta || type === "timeupdate");
                 if (!resolving && video.currentSrc && Number.isFinite(video.duration) &&
                     (!capability || retryNow)) resolveMedia();

@@ -141,17 +141,28 @@
         return new Uint8Array(await res.arrayBuffer());
     }
 
+    function spriteLists(text, base) {
+        if (typeof WmcSprites === "undefined" || !WmcSprites.cuesFromPlaylist) return { cues: [], imagePlaylist: null };
+        return WmcSprites.cuesFromPlaylist(text, base);
+    }
+
     // 读一个播放列表：master 先选最高带宽变体。返回判定用字段 + 媒体分片。
+    // 图片轨只附加在返回值上，读不到时不影响切段。
     async function inspect(url, signal) {
-        var master = parse(await fetchText(url, signal), url);
+        var masterText = await fetchText(url, signal);
+        var master = parse(masterText, url);
         var playlistUrl = url;
         var media = master;
+        var mediaText = masterText;
         if (master.isMaster) {
             var best = bestVariant(master);
             if (!best) throw CutError("master 播放列表里没有变体");
             playlistUrl = best.url;
-            media = parse(await fetchText(playlistUrl, signal), playlistUrl);
+            mediaText = await fetchText(playlistUrl, signal);
+            media = parse(mediaText, playlistUrl);
         }
+        var fromMaster = spriteLists(masterText, url);
+        var fromMedia = spriteLists(mediaText, playlistUrl);
         return {
             masterUrl: url,
             playlistUrl: playlistUrl,
@@ -161,6 +172,8 @@
             sampleAes: master.sampleAes || media.sampleAes,
             audioUri: master.audioUri,
             media: media,
+            imageCues: fromMedia.cues.length ? fromMedia.cues : fromMaster.cues,
+            imagePlaylist: fromMaster.imagePlaylist || fromMedia.imagePlaylist || null,
         };
     }
 

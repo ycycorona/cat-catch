@@ -62,6 +62,9 @@ GPL §5a 要求标注修改。约定：**每个版本在此登记对上游文件
 | 2026-10-28 | 未发版 | 整段下载打开上游 `m3u8.html` 时追加 `wmc/m3u8-open.js`：仅当地址带 `wmcMp4=1` 才勾选 MP4 并取消 ffmpeg 转码。手动点放大镜不带该参数，解析页默认不变 |
 | 2026-10-29 | 未发版 | 标准与工作室视图的「全览」左侧增加 5 min / 15 min / 30 min 细节窗口按钮；`_locales/*` 仅新增 `wmc_spanWindow` |
 | 2026-10-29 | 未发版 | 浮窗 I / O 打入点、出点：只在浮窗有焦点或工作室模式时生效；`_locales/*` 仅新增 `wmc_keyMarkIn` / `wmc_keyMarkOut` |
+| 2026-10-29 | 未发版 | 细节轴雪碧图预览：`manifest.json` 的 content script 列表追加 `wmc/sprites.js`（`document_start`）。预览逻辑在 `wmc/sprites.js`、`wmc/overlay.js`、`wmc/sw.js`、`wmc/hlscut.js` |
+| 2026-10-30 | 未发版 | 雪碧图地址改从页面主世界读取：`manifest.json` 追加 `wmc/sprite-page.js`（`world: MAIN`，`document_start`）。播放器 `thumbnail` 配置和它时间轴上的图片地址写入 `video.dataset.wmcThumb`，浮窗只消费这份结果 |
+| 2026-10-30 | 未发版 | `wmc/popup.js`：分段浮窗打开成功后关闭猫抓弹窗。勾选自动显示、或打开失败时弹窗保持 |
 | 2026-10-29 | 未发版 | `wmc/overlay.js` 的总览/细节轴播放头统一居中、冰蓝色短肩指针；轨道顶部预留 7px，三角尖端贴住轨道上沿，保留选段裁切和拖动区域 |
 | — | 0.1.0 | （待填）新增选段与任务模块 |
 

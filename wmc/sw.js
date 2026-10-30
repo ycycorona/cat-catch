@@ -1,7 +1,7 @@
 // [WMC] SPEC-001 T6/T3：媒体源判定（MP4 Range、HLS 点播、不可选原因）与提交入口。
 // 与上游 js/background.js 同一个 SW 全局域：cacheData 由 js/init.js 提供，本文件只读它。
 // 消息格式沿用上游：{ Message: "wmcXxx", ... }。
-importScripts("/wmc/hlscut.js"); // [WMC] 只读播放列表，用于 HLS 能力判定
+importScripts("/wmc/sprites.js", "/wmc/hlscut.js"); // [WMC] 雪碧图解析；只读播放列表，用于 HLS 能力判定
 
 // 不可选段原因（i18n 键，文案在 _locales 里，面板/浮层自己翻译）。
 const WMC_REASON = {
@@ -21,6 +21,23 @@ function wmcCachedMedia(tabId, url) {
 function wmcDashCandidates(tabId) {
     const list = (self.cacheData && self.cacheData[tabId]) || [];
     return list.filter((item) => /\.mpd(\?|$)|dash\+xml/i.test(`${item.url || ""} ${item.type || ""}`));
+}
+
+function wmcVttCandidates(tabId) {
+    const list = (self.cacheData && self.cacheData[tabId]) || [];
+    const urls = [];
+    for (const item of list) {
+        const url = item && item.url;
+        if (typeof url !== "string") continue;
+        if (/\.vtt(\?|#|$)/i.test(url) || /text\/vtt/i.test(item.type || "")) urls.push(url);
+    }
+    return urls.slice(-6);
+}
+
+async function wmcText(url) {
+    const res = await fetch(url, { credentials: "include" });
+    if (!res.ok) throw new Error(String(res.status));
+    return res.text();
 }
 
 function wmcM3u8Candidates(tabId) {
@@ -63,6 +80,8 @@ async function wmcResolveHls(tabId, duration) {
         current.info.endlist = current.info.endlist && match.info.endlist;
         current.info.sampleAes = current.info.sampleAes || match.info.sampleAes;
         current.info.audioUri = current.info.audioUri || match.info.audioUri;
+        if (!current.info.imagePlaylist && match.info.imagePlaylist) current.info.imagePlaylist = match.info.imagePlaylist;
+        if (!(current.info.imageCues || []).length && (match.info.imageCues || []).length) current.info.imageCues = match.info.imageCues;
         if (match.info.masterUrl !== match.info.playlistUrl) {
             current.info.masterUrl = match.info.masterUrl;
             current.item = match.item;
@@ -80,9 +99,10 @@ async function wmcResolveHls(tabId, duration) {
         requestHeaders: item.requestHeaders || null,
         initiator: item.initiator || null,
     };
-    if (!info.endlist) return { ...media, selectable: false, reason: WMC_REASON.live };
-    if (info.sampleAes || info.audioUri) return { ...media, selectable: false, reason: WMC_REASON.unsupported };
-    return { ...media, selectable: true };
+    const images = { imageCues: info.imageCues || [], imagePlaylist: info.imagePlaylist || null };
+    if (!info.endlist) return { ...media, ...images, selectable: false, reason: WMC_REASON.live };
+    if (info.sampleAes || info.audioUri) return { ...media, ...images, selectable: false, reason: WMC_REASON.unsupported };
+    return { ...media, ...images, selectable: true };
 }
 
 // [WMC] 无 MPD 的 Bilibili DASH 由播放器数据确认；.m4s 本身也可能属于 HLS。
@@ -407,12 +427,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             const tabId = sender.tab && sender.tab.id;
             if (message.drm || message.mediaStream) return { selectable: false, kind: null, reason: WMC_REASON.unsupported };
             const media = await wmcMediaFor(tabId, message.currentSrc || message.url, message.duration, { frameId: sender.frameId });
+            let imageCues = media.imageCues || [];
+            let vttCues = [];
+            if (typeof WmcSprites !== "undefined") {
+                if (!imageCues.length && media.imagePlaylist) {
+                    try {
+                        imageCues = WmcSprites.cuesFromPlaylist(await wmcText(media.imagePlaylist), media.imagePlaylist).cues || [];
+                    } catch (e) { /* 图片轨跨源或失败就当没有 */ }
+                }
+                for (const url of wmcVttCandidates(tabId)) {
+                    try {
+                        const cues = WmcSprites.parseVtt(await wmcText(url), url);
+                        if (cues.length) { vttCues = cues; break; }
+                    } catch (e) { /* 这一条取不到就试下一条 */ }
+                }
+            }
             return {
                 selectable: media.selectable,
                 kind: media.kind || null,
                 reason: media.reason || null,
                 requestHeaders: media.requestHeaders || null,
                 initiator: media.initiator || null,
+                vttCues,
+                imageCues,
+                hlsUrl: media.hlsUrl || null,
             };
         })());
         return true;
