@@ -1,8 +1,15 @@
 # AGENTS.md
 
-本仓库只记录**工程事实**。流程细则与完整验证纪律在每台机器本地的私有规则里，位置记在仓库根的
-`.wmc.local.json` 的 `privateRules`（gitignored，不入库）；该文件不存在时只按本文件执行。
-读到位置后先看其中的 `CONTEXT.md` 与 `docs/agents/agent-rules.md`。
+本仓库只记录**工程事实**。流程细则与完整验证纪律在每台机器本地的私有规则里，位置由其根目录的
+`.wmc.local.json` 指定（gitignored）。格式见 `.wmc.local.example.json`：
+
+```json
+{ "privateRules": "/absolute/path/to/wmc-dev" }
+```
+
+首次使用：`cp .wmc.local.example.json .wmc.local.json`，把 `privateRules` 改成你机器上私有仓的绝对
+路径，重新开会话。文件缺失时只按本文件执行。读到位置后先看其中的 `CONTEXT.md` 与
+`docs/agents/agent-rules.md`。
 
 ## 铁律
 
