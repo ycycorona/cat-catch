@@ -1,4 +1,5 @@
 // [WMC] SPEC-001 T6：任务面板——平铺列表 + 执行宿主（一次一个任务，按提交顺序）。
+// [WMC] SPEC-002 T2：页签、搜索、按行更新。这一张不分组。
 // 队列与状态只有一份来源：chrome.storage.local 的 wmcJobs。本文件不读写 cacheData。
 (() => {
     const SEG_COLORS = ["#3b82f6", "#f97316", "#22c55e"];
@@ -12,9 +13,20 @@
     };
     const UNFINISHED = ["queued", "running"];
 
-    const t = (key) => chrome.i18n.getMessage(key) || key;
-    document.getElementById("wmc_title").textContent = t("wmc_panelTitle");
+    const t = (key, sub) => (sub === undefined ? chrome.i18n.getMessage(key) : chrome.i18n.getMessage(key, sub)) || key;
+    const panelTitle = t("wmc_panelTitle");
+    document.getElementById("wmc_title").textContent = panelTitle;
     const list = document.getElementById("wmc_clips");
+    const tabsEl = document.getElementById("wmc_tabs");
+    const searchEl = document.getElementById("wmc_search");
+    const clearEl = document.getElementById("wmc_search_clear");
+    const emptyEl = document.getElementById("wmc_empty");
+    searchEl.placeholder = t("wmc_search");
+    searchEl.setAttribute("aria-label", t("wmc_search"));
+    clearEl.textContent = t("wmc_searchClear");
+    emptyEl.textContent = t("wmc_noMatch");
+    const TAB_KEYS = { running: "wmc_tabRunning", done: "wmc_tabDone", open: "wmc_tabOpen", all: "wmc_tabAll" };
+    let tab = "all";
     const fmt = (sec) => {
         const s = Math.max(0, Math.floor(sec || 0));
         return `${String(Math.floor(s / 60)).padStart(2, "0")}-${String(s % 60).padStart(2, "0")}`;
@@ -46,10 +58,27 @@
     // 进度落盘：同一任务距上次写入不足 1 秒就跳过，界面读的是内存里的最新值。
     const progressWritten = new Map();
     const patchProgress = async (id, progress) => {
+        const job = jobs.find((item) => item.id === id);
+        if (job && job.status === "running") {
+            job.progress = progress;
+            const li = rows.get(id);
+            if (li) paint(li, job);
+        }
         const now = Date.now();
         if (now - (progressWritten.get(id) || 0) < 1000) return;
         progressWritten.set(id, now);
         await patch(id, { progress });
+    };
+    // 存储里的进度可能比内存里慢一秒。同一次下载中不把界面倒回去。
+    const takeJobs = (next) => {
+        const prev = new Map(jobs.map((job) => [job.id, job]));
+        jobs = (next || []).map((job) => {
+            const old = prev.get(job.id);
+            if (old && old.status === "running" && job.status === "running" && (old.progress || 0) > (job.progress || 0)) {
+                return { ...job, progress: old.progress };
+            }
+            return job;
+        });
     };
 
     // 主名按 UTF-8 字节封顶。200 留出 ".mp4.crdownload"，避免 Chrome 临时名顶破 255 字节。
@@ -221,49 +250,140 @@
         return el;
     };
 
-    function row(job) {
-        const li = document.createElement("li");
-        const color = document.createElement("span");
-        color.className = "color";
-        color.style.background = SEG_COLORS[job.segIndex % SEG_COLORS.length];
-        const main = document.createElement("div");
-        main.className = "main";
-        const title = document.createElement("div");
-        title.className = "title";
-        title.textContent = job.pageTitle || job.pageUrl;
-        const range = document.createElement("div");
-        range.className = "meta";
+    const rows = new Map();
+    let structure = "";
+    const rowId = (job) => String(job.id || job.openedUrl || job.createdAt);
+    const siteName = (url) => {
+        try { return new URL(url).hostname.replace(/^www\./i, ""); }
+        catch { return ""; }
+    };
+    const inTab = (status, which) => which === "all" ||
+        (which === "running" && UNFINISHED.includes(status)) ||
+        (which === "done" && status === "done") ||
+        (which === "open" && (status === "failed" || status === "interrupted" || status === "canceled"));
+    const matchesQuery = (job, q) => {
+        if (!q) return true;
+        return [job.pageTitle, siteName(job.pageUrl), job.fileName].join("\n").toLowerCase().includes(q);
+    };
+
+    function setActions(li, job, kind) {
+        if (li.dataset.kind === kind) return;
+        li.dataset.kind = kind;
+        const actions = li.querySelector(".actions");
+        actions.textContent = "";
+        if (kind === "cancel") actions.append(button(t("wmc_cancel"), () => cancel(job.id)));
+        else if (kind === "retry") actions.append(button(t("wmc_retry"), () => retry(job.id)));
+    }
+
+    function paint(li, job) {
+        li.querySelector(".title").textContent = job.pageTitle || job.pageUrl || "";
+        const range = li.querySelector(".range");
+        const status = li.querySelector(".status");
+        const color = li.querySelector(".color");
         if (job.openedUrl) {
             color.style.background = "#9ca3af";
             range.textContent = t("wmc_wholeHandoff");
-            main.append(title, range);
-            li.append(color, main);
-            return li;
+            status.textContent = "";
+            status.classList.remove("error");
+            setActions(li, job, "none");
+            return;
         }
+        const seg = Number.isInteger(job.segIndex) ? job.segIndex : 0;
+        color.style.background = SEG_COLORS[seg % SEG_COLORS.length];
         range.textContent =
             `${t("wmc_userRange")} ${fmt(job.start)}–${fmt(job.end)}` +
             (job.actualStart === null || job.actualStart === undefined
                 ? ""
                 : ` · ${t("wmc_actualRange")} ${fmt(job.actualStart)}–${fmt(job.actualEnd)}`);
-        const status = document.createElement("div");
-        status.className = job.error ? "meta error" : "meta";
+        status.classList.toggle("error", !!job.error);
         status.textContent =
             t(STATUS_KEYS[job.status] || "wmc_statusFailed") +
             (job.status === "running" ? ` ${Math.round((job.progress || 0) * 100)}%` : "") +
             (job.error ? ` · ${job.error}` : "");
-        main.append(title, range, status);
-        const actions = document.createElement("div");
-        actions.className = "actions";
-        if (UNFINISHED.includes(job.status)) actions.append(button(t("wmc_cancel"), () => cancel(job.id)));
-        else if (job.status !== "done") actions.append(button(t("wmc_retry"), () => retry(job.id)));
-        li.append(color, main, actions);
+        const kind = UNFINISHED.includes(job.status) ? "cancel" : job.status === "done" ? "none" : "retry";
+        setActions(li, job, kind);
+    }
+
+    function ensureRow(job) {
+        const id = rowId(job);
+        let li = rows.get(id);
+        if (!li) {
+            li = document.createElement("li");
+            li.dataset.id = id;
+            const color = document.createElement("span");
+            color.className = "color";
+            const main = document.createElement("div");
+            main.className = "main";
+            const title = document.createElement("div");
+            title.className = "title";
+            const range = document.createElement("div");
+            range.className = "meta range";
+            const status = document.createElement("div");
+            status.className = "meta status";
+            const actions = document.createElement("div");
+            actions.className = "actions";
+            main.append(title, range, status);
+            li.append(color, main, actions);
+            rows.set(id, li);
+        }
+        paint(li, job);
         return li;
     }
 
-    function render() {
-        list.textContent = "";
-        for (const job of [...jobs, ...handoffs].sort((a, b) => b.createdAt - a.createdAt)) list.appendChild(row(job));
+    function visibleItems(q) {
+        const items = [];
+        for (const job of jobs) {
+            if (!inTab(job.status, tab) || !matchesQuery(job, q)) continue;
+            items.push(job);
+        }
+        if (tab === "all") {
+            for (const job of handoffs) if (matchesQuery(job, q)) items.push(job);
+        }
+        items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        return items;
     }
+
+    function render() {
+        const q = searchEl.value.trim().toLowerCase();
+        clearEl.hidden = q.length === 0;
+        const items = visibleItems(q);
+        const key = `${tab}\0${q}\0${items.map(rowId).join("\0")}`;
+        if (key !== structure) {
+            structure = key;
+            const frag = document.createDocumentFragment();
+            for (const job of items) frag.appendChild(ensureRow(job));
+            list.replaceChildren(frag);
+        } else {
+            for (const job of items) paint(rows.get(rowId(job)), job);
+        }
+        const live = new Set([...jobs, ...handoffs].map(rowId));
+        for (const id of rows.keys()) if (!live.has(id)) rows.delete(id);
+        for (const btn of tabsEl.querySelectorAll("[role=tab]")) {
+            const which = btn.dataset.tab;
+            const count = which === "all"
+                ? jobs.length + handoffs.length
+                : jobs.filter((job) => inTab(job.status, which)).length;
+            btn.textContent = t(TAB_KEYS[which], String(count));
+            btn.setAttribute("aria-selected", which === tab ? "true" : "false");
+        }
+        const done = jobs.filter((job) => job.status === "done").length;
+        document.title = jobs.length ? `(${done}/${jobs.length}) ${panelTitle}` : panelTitle;
+        const filteredEmpty = items.length === 0 && (q !== "" || tab !== "all" || jobs.length + handoffs.length > 0);
+        emptyEl.hidden = !filteredEmpty;
+    }
+
+    tabsEl.addEventListener("click", (event) => {
+        const btn = event.target.closest("[role=tab]");
+        if (!btn) return;
+        tab = btn.dataset.tab;
+        render();
+    });
+    searchEl.addEventListener("input", () => render());
+    clearEl.addEventListener("click", () => {
+        searchEl.value = "";
+        searchEl.focus();
+        render();
+    });
 
     // 有未完成任务时关闭面板要确认；关闭后由 sw.js 的 tabs.onRemoved 把它们标为已中断。
     window.addEventListener("beforeunload", (e) => {
@@ -275,7 +395,7 @@
     (async () => {
         chrome.storage.local.onChanged.addListener((changes) => {
             if (!changes.wmcJobs) return;
-            jobs = changes.wmcJobs.newValue || [];
+            takeJobs(changes.wmcJobs.newValue || []);
             render();
             if (jobs.some((job) => job.status === "queued")) pump();
         });

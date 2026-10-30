@@ -7,6 +7,15 @@
         body { margin: 0; padding: 16px; font: 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
             background: #f9fafb; color: #111827; }
         h1 { margin: 0 0 12px; font-size: 16px; }
+        .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 12px; }
+        .tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+        .tabs button[aria-selected="true"] { background: #111827; color: #fff; border-color: #111827; }
+        .tabs button[aria-selected="true"]:hover { background: #1f2937; }
+        .search { display: flex; gap: 6px; margin-left: auto; align-items: center; }
+        .search input { font: inherit; font-size: 12px; padding: 4px 8px; border: 1px solid #d1d5db;
+            border-radius: 6px; min-width: 14em; color: #111827; background: #fff; }
+        .search input:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+        .empty { margin: 0 0 8px; color: #6b7280; }
         ul { list-style: none; margin: 0; padding: 0; }
         li { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; margin-bottom: 8px;
             border-radius: 10px; background: #fff; box-shadow: 0 1px 3px rgba(17, 24, 39, .12); }
@@ -24,6 +33,19 @@
 </head>
 <body>
     <h1 id="wmc_title"></h1>
+    <div class="toolbar">
+        <div class="tabs" id="wmc_tabs" role="tablist">
+            <button type="button" role="tab" data-tab="running"></button>
+            <button type="button" role="tab" data-tab="done"></button>
+            <button type="button" role="tab" data-tab="open"></button>
+            <button type="button" role="tab" data-tab="all" aria-selected="true"></button>
+        </div>
+        <div class="search">
+            <input id="wmc_search" type="search">
+            <button type="button" id="wmc_search_clear" hidden></button>
+        </div>
+    </div>
+    <p class="empty" id="wmc_empty" hidden></p>
     <ul id="wmc_clips"></ul>
     <!-- 执行宿主：上游 setRequestHeaders 依赖 js/init.js 的 G 与 js/function.js -->
     <script src="/js/polyfill.js"></script>

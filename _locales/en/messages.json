@@ -74,6 +74,27 @@
   "wmc_statusInterrupted": {
     "message": "Interrupted"
   },
+  "wmc_tabRunning": {
+    "message": "Downloading $1"
+  },
+  "wmc_tabDone": {
+    "message": "Done $1"
+  },
+  "wmc_tabOpen": {
+    "message": "Incomplete $1"
+  },
+  "wmc_tabAll": {
+    "message": "All $1"
+  },
+  "wmc_search": {
+    "message": "Search title, site, or file name"
+  },
+  "wmc_searchClear": {
+    "message": "Clear"
+  },
+  "wmc_noMatch": {
+    "message": "No matching tasks"
+  },
   "wmc_cancel": {
     "message": "Cancel"
   },
