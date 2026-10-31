@@ -1,9 +1,171 @@
 {
+  "wmc_deleteSegment": {
+    "message": "删除选段"
+  },
+  "wmc_segmentStart": {
+    "message": "选段起点"
+  },
+  "wmc_segmentEnd": {
+    "message": "选段终点"
+  },
+  "wmc_maxSegments": {
+    "message": "↗ 展开标准视图，添加更多"
+  },
+  "wmc_playPause": {
+    "message": "播放、暂停"
+  },
+  "wmc_tipClose": {
+    "message": "关闭"
+  },
+  "wmc_closeOverlay": {
+    "message": "关闭控制器"
+  },
+  "wmc_activeDownloads": {
+    "message": "进行中的下载任务：$1"
+  },
+  "wmc_submitFailed": {
+    "message": "无法提交下载，请重试"
+  },
+  "wmc_wholeStarted": {
+    "message": "已在后台新标签页开始下载整个视频"
+  },
+  "wmc_wholeHandoff": {
+    "message": "整个视频 · 在后台标签页下载"
+  },
   "catCatch": {
     "message": "Web Media Clipper"
   },
   "description": {
     "message": "识别网页中的媒体，选取时间段并下载"
+  },
+  "wmc_panelTitle": {
+    "message": "媒体片段"
+  },
+  "wmc_play": {
+    "message": "播放"
+  },
+  "wmc_pause": {
+    "message": "暂停"
+  },
+  "wmc_addSegment": {
+    "message": "添加选段"
+  },
+  "wmc_download": {
+    "message": "下载"
+  },
+  "wmc_needEnd": {
+    "message": "请先标记终点再下载"
+  },
+  "wmc_statusQueued": {
+    "message": "排队中"
+  },
+  "wmc_statusRunning": {
+    "message": "下载中"
+  },
+  "wmc_statusDone": {
+    "message": "已完成"
+  },
+  "wmc_statusFailed": {
+    "message": "失败"
+  },
+  "wmc_statusCanceled": {
+    "message": "已取消"
+  },
+  "wmc_statusInterrupted": {
+    "message": "已中断"
+  },
+  "wmc_tabRunning": {
+    "message": "下载中 $1"
+  },
+  "wmc_tabDone": {
+    "message": "已完成 $1"
+  },
+  "wmc_tabOpen": {
+    "message": "未完成 $1"
+  },
+  "wmc_tabAll": {
+    "message": "全部 $1"
+  },
+  "wmc_search": {
+    "message": "搜索片名、站点或文件名"
+  },
+  "wmc_searchClear": {
+    "message": "清空"
+  },
+  "wmc_noMatch": {
+    "message": "没有符合条件的任务"
+  },
+  "wmc_groupBy": {
+    "message": "分组"
+  },
+  "wmc_groupSite": {
+    "message": "按站点"
+  },
+  "wmc_groupPage": {
+    "message": "按页面"
+  },
+  "wmc_groupNone": {
+    "message": "不分组"
+  },
+  "wmc_groupOther": {
+    "message": "其他"
+  },
+  "wmc_groupRatio": {
+    "message": "$1/$2 完成"
+  },
+  "wmc_cancelOpen": {
+    "message": "取消未完成"
+  },
+  "wmc_retryFailed": {
+    "message": "重试失败"
+  },
+  "wmc_clearDone": {
+    "message": "清除已完成"
+  },
+  "wmc_openSource": {
+    "message": "打开来源页"
+  },
+  "wmc_fold": {
+    "message": "折叠"
+  },
+  "wmc_queuePos": {
+    "message": "排队中 · 第 $1 位"
+  },
+  "wmc_elapsed": {
+    "message": "已用 $1"
+  },
+  "wmc_eta": {
+    "message": "剩余 $1"
+  },
+  "wmc_openFile": {
+    "message": "打开"
+  },
+  "wmc_showFile": {
+    "message": "在文件夹中显示"
+  },
+  "wmc_fileGone": {
+    "message": "文件已不在原位置"
+  },
+  "wmc_delete": {
+    "message": "删除"
+  },
+  "wmc_panelNote": {
+    "message": "一次下载一个任务，按提交顺序。没有暂停：取消后重试会从头下载。删除记录不会删除已保存的文件。"
+  },
+  "wmc_cancel": {
+    "message": "取消"
+  },
+  "wmc_retry": {
+    "message": "重试"
+  },
+  "wmc_userRange": {
+    "message": "选段"
+  },
+  "wmc_actualRange": {
+    "message": "实际"
+  },
+  "wmc_leaveConfirm": {
+    "message": "还有未完成的下载任务，关闭面板会中断它们。"
   },
   "confirm": {
     "message": "确认"
@@ -177,19 +339,19 @@
     "message": "选项"
   },
   "titleOption": {
-    "message": "猫抓 设置"
+    "message": "设置"
   },
   "titleDownload": {
-    "message": "猫抓 下载器"
+    "message": "下载器"
   },
   "titleM3U8": {
-    "message": "猫抓 M3U8解析器"
+    "message": "M3U8 解析器"
   },
   "titleJson": {
-    "message": "猫抓 json格式化"
+    "message": "JSON 格式化"
   },
   "titledash": {
-    "message": "猫抓 dash解析器"
+    "message": "DASH 解析器"
   },
   "suffix": {
     "message": "后缀"
@@ -327,7 +489,7 @@
     "message": "留空默认为当前浏览器 User Agent"
   },
   "alwaysDisableCatCatcher": {
-    "message": "始终不启用猫抓下载器"
+    "message": "始终不启用内置下载器"
   },
   "autoClosePageAfterDownload": {
     "message": "下载完自动关闭页面"
@@ -1057,5 +1219,262 @@
   },
   "fileName": {
     "message": "文件名"
+  },
+  "wmc_currentMedia": {
+    "message": "当前媒体"
+  },
+  "wmc_standardView": {
+    "message": "展开标准视图"
+  },
+  "wmc_compactView": {
+    "message": "收起到简洁视图"
+  },
+  "wmc_segmentDuration": {
+    "message": "时长"
+  },
+  "wmc_segmentsSummary": {
+    "message": "$1 段 · 合计 $2"
+  },
+  "wmc_invalidSegmentTime": {
+    "message": "请输入有效时间（HH:MM:SS.mmm），开始必须早于结束且不能超出总时长"
+  },
+  "wmc_locateSegment": {
+    "message": "定位到选段起点"
+  },
+  "wmc_resizeOverlay": {
+    "message": "调整浮窗大小"
+  },
+  "wmc_entryLabel": {
+    "message": "选段下载"
+  },
+  "wmc_showEntry": {
+    "message": "在播放器上显示入口"
+  },
+  "wmc_autoShowOverlay": {
+    "message": "自动显示浮窗"
+  },
+  "wmc_overlaySettingFailed": {
+    "message": "无法保存浮窗设置，请重试"
+  },
+  "wmc_followPlayback": {
+    "message": "跟随最近播放"
+  },
+  "wmc_videoNumber": {
+    "message": "视频 $1"
+  },
+  "wmc_confirmSwitchMedia": {
+    "message": "切换媒体将清空未提交的选段，是否继续？"
+  },
+  "wmc_openOverlay": {
+    "message": "打开分段浮窗"
+  },
+  "wmc_noVideo": {
+    "message": "请先播放网页中的视频"
+  },
+  "wmc_cannotOpenOverlay": {
+    "message": "当前页面无法打开浮窗"
+  },
+  "wmc_reasonNoRange": {
+    "message": "服务器不支持分段读取"
+  },
+  "wmc_reasonUnknownSource": {
+    "message": "无法确定媒体源"
+  },
+  "wmc_reasonLive": {
+    "message": "直播流不支持选段"
+  },
+  "wmc_reasonUnsupported": {
+    "message": "此媒体不支持选段"
+  },
+  "wmc_overview": {
+    "message": "总览"
+  },
+  "wmc_detail": {
+    "message": "细节"
+  },
+  "wmc_zoomOut": {
+    "message": "缩小"
+  },
+  "wmc_zoomIn": {
+    "message": "放大"
+  },
+  "wmc_fullView": {
+    "message": "全览"
+  },
+  "wmc_spanWindow": {
+    "message": "细节窗口改为 $MINUTES$ 分钟，围绕中点",
+    "placeholders": {
+      "minutes": {
+        "content": "$1"
+      }
+    }
+  },
+  "wmc_shortcuts": {
+    "message": "快捷键"
+  },
+  "wmc_keyPlay": {
+    "message": "播放 / 暂停"
+  },
+  "wmc_keyMarkIn": {
+    "message": "在当前时间设入点；再按则把入点挪到当前时间"
+  },
+  "wmc_keyMarkOut": {
+    "message": "在当前时间设出点，必须晚于入点"
+  },
+  "wmc_keyZoomIn": {
+    "message": "放大细节窗口，围绕中点缩短起止"
+  },
+  "wmc_keyZoomOut": {
+    "message": "缩小细节窗口，围绕中点拉长起止"
+  },
+  "wmc_keyPrevNext": {
+    "message": "上一选段 / 下一选段，窗口移过去，播放头不动"
+  },
+  "wmc_keyHelp": {
+    "message": "打开或关闭这个说明"
+  },
+  "wmc_keyPinch": {
+    "message": "双指捏合，或 Ctrl / ⌘ + 滚轮，缩放"
+  },
+  "wmc_keyPan": {
+    "message": "双指左右滑，或 Shift + 滚轮"
+  },
+  "wmc_keyScroll": {
+    "message": "双指上下滑，滚动选段列表"
+  },
+  "wmc_studioMode": {
+    "message": "工作室"
+  },
+  "wmc_sessionNew": {
+    "message": "新会话"
+  },
+  "wmc_sessionResume": {
+    "message": "恢复"
+  },
+  "wmc_sessionEmpty": {
+    "message": "这个页面还没有保存的分段"
+  },
+  "wmc_sessionMismatch": {
+    "message": "这段记录放不进当前视频"
+  },
+  "wmc_sessionSegments": {
+    "message": "$1 段"
+  },
+  "wmc_markIn": {
+    "message": "入点"
+  },
+  "wmc_markOut": {
+    "message": "出点"
+  },
+  "wmc_moreSegments": {
+    "message": "更多段"
+  },
+  "wmc_markInTip": {
+    "message": "在当前时间标入点（I）"
+  },
+  "wmc_markOutTip": {
+    "message": "在当前时间标出点（O），Esc 放弃"
+  },
+  "wmc_moreSegmentsTip": {
+    "message": "简洁视图最多 2 段，展开标准视图继续添加"
+  },
+  "wmc_add15": {
+    "message": "＋ 添加 15 秒"
+  },
+  "wmc_add15Tip": {
+    "message": "在播放头处加一段 15 秒"
+  },
+  "wmc_downloadWhole": {
+    "message": "下载整段"
+  },
+  "wmc_downloadN": {
+    "message": "下载 $1 段"
+  },
+  "wmc_downloadNTotal": {
+    "message": "下载 $1 段 · $2"
+  },
+  "wmc_downloadWholeTip": {
+    "message": "没有选段，下载整个视频（后台新标签页）"
+  },
+  "wmc_downloadSegsTip": {
+    "message": "每段下载成一个文件"
+  },
+  "wmc_outAfterIn": {
+    "message": "出点要晚于入点"
+  },
+  "wmc_submitted": {
+    "message": "已提交 $1 段"
+  },
+  "wmc_viewTasks": {
+    "message": "在任务管理器查看"
+  },
+  "wmc_undo": {
+    "message": "撤销"
+  },
+  "wmc_switchedMedia": {
+    "message": "已切换到「$1」，清空了 $2 段"
+  },
+  "wmc_dismiss": {
+    "message": "关闭提示"
+  },
+  "wmc_pillRunning": {
+    "message": "$1 下载中"
+  },
+  "wmc_pillDone": {
+    "message": "已完成 $1"
+  },
+  "wmc_pillFailed": {
+    "message": "$1 失败"
+  },
+  "wmc_openTasks": {
+    "message": "打开任务管理器"
+  },
+  "wmc_tasks": {
+    "message": "任务"
+  },
+  "wmc_window": {
+    "message": "窗口"
+  },
+  "wmc_sessions": {
+    "message": "会话"
+  },
+  "wmc_sessionNewItem": {
+    "message": "＋ 新会话（当前选段存入列表，时间轴清空）"
+  },
+  "wmc_sessionSaved": {
+    "message": "本页已存"
+  },
+  "wmc_keyEsc": {
+    "message": "放弃待定入点 / 关菜单 / 退出工作室"
+  },
+  "wmc_keyDelete": {
+    "message": "删除选中的段"
+  },
+  "wmc_rowFormat": {
+    "message": "时间格式应为 HH:MM:SS.mmm"
+  },
+  "wmc_rowOverflow": {
+    "message": "终点超出总时长 $1"
+  },
+  "wmc_rowOrder": {
+    "message": "终点 $1 不晚于起点 $2"
+  },
+  "wmc_reasonTooShort": {
+    "message": "视频不足 1 秒，只能下载整段"
+  },
+  "wmc_rowTooShort": {
+    "message": "选段至少 1 秒"
+  },
+  "wmc_fixRows": {
+    "message": "有选段时间不对，改好才能下载"
+  },
+  "wmc_markingFoot": {
+    "message": "正在标第 $1 段：按 O 标出点，Esc 放弃"
+  },
+  "wmc_noSegmentsFoot": {
+    "message": "没有选段时只能下载整段"
+  },
+  "wmc_drag": {
+    "message": "拖动"
   }
 }

@@ -5,3 +5,10 @@ dist/
 *.zip
 *.pem
 /.workbuddy/memory
+
+# Local agent preferences
+.orca.local.yaml
+.wmc.local.json
+.alma-snapshots
+
+.DS_Store

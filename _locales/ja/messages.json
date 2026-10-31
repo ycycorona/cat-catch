@@ -1057,5 +1057,79 @@
   },
   "fileName": {
     "message": "ファイル名"
+  },
+  "wmc_overview": {
+    "message": "Overview"
+  },
+  "wmc_detail": {
+    "message": "Detail"
+  },
+  "wmc_zoomOut": {
+    "message": "Zoom out"
+  },
+  "wmc_zoomIn": {
+    "message": "Zoom in"
+  },
+  "wmc_fullView": {
+    "message": "Entire"
+  },
+  "wmc_spanWindow": {
+    "message": "Set the detail window to $MINUTES$ minutes, around its midpoint",
+    "placeholders": {
+      "minutes": {
+        "content": "$1"
+      }
+    }
+  },
+  "wmc_shortcuts": {
+    "message": "Shortcuts"
+  },
+  "wmc_keyPlay": {
+    "message": "Play / pause"
+  },
+  "wmc_keyMarkIn": {
+    "message": "Set the in point, or move it to the current time"
+  },
+  "wmc_keyMarkOut": {
+    "message": "Set the out point. It must be after the in point"
+  },
+  "wmc_keyZoomIn": {
+    "message": "Zoom in on the detail window, around its midpoint"
+  },
+  "wmc_keyZoomOut": {
+    "message": "Zoom out the detail window, around its midpoint"
+  },
+  "wmc_keyPrevNext": {
+    "message": "Previous / next clip. The window follows; the playhead stays"
+  },
+  "wmc_keyHelp": {
+    "message": "Open or close this guide"
+  },
+  "wmc_keyPinch": {
+    "message": "Pinch, or Ctrl / ⌘ + scroll, to zoom"
+  },
+  "wmc_keyPan": {
+    "message": "Two-finger horizontal scroll, or Shift + scroll"
+  },
+  "wmc_keyScroll": {
+    "message": "Two-finger vertical scroll moves the clip list"
+  },
+  "wmc_studioMode": {
+    "message": "スタジオモード"
+  },
+  "wmc_sessionNew": {
+    "message": "新規"
+  },
+  "wmc_sessionResume": {
+    "message": "再開"
+  },
+  "wmc_sessionEmpty": {
+    "message": "このページには保存された区間がありません"
+  },
+  "wmc_sessionMismatch": {
+    "message": "この保存は現在の動画に収まりません"
+  },
+  "wmc_sessionSegments": {
+    "message": "$1 区間"
   }
 }

@@ -4,5 +4,5 @@
 
 @AGENTS.md
 
-补充：产品需求、进度、流程细则在私有仓库 `~/wmc-dev/`（入口 `CONTEXT.md`），
-按需读，不在本仓库。
+补充：产品需求、进度与流程细则在本机的私有规则里（入口 `CONTEXT.md`）。位置由仓库根的
+`.wmc.local.json` 指定：`cp .wmc.local.example.json .wmc.local.json`，改 `privateRules`。

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Web Media Clipper</title>
+    <style>
+        body { margin: 0; padding: 16px; font: 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+            background: #f9fafb; color: #111827; }
+        h1 { margin: 0 0 12px; font-size: 16px; }
+        .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 12px; }
+        .tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+        .tabs button[aria-selected="true"] { background: #111827; color: #fff; border-color: #111827; }
+        .tabs button[aria-selected="true"]:hover { background: #1f2937; }
+        .group { display: flex; align-items: center; gap: 6px; color: #4b5563; font-size: 12px; }
+        .group select { font: inherit; font-size: 12px; padding: 4px 8px; border: 1px solid #d1d5db;
+            border-radius: 6px; background: #fff; color: #111827; }
+        .search { display: flex; gap: 6px; margin-left: auto; align-items: center; }
+        .search input { font: inherit; font-size: 12px; padding: 4px 8px; border: 1px solid #d1d5db;
+            border-radius: 6px; min-width: 14em; color: #111827; background: #fff; }
+        .search input:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+        .empty { margin: 0 0 8px; color: #6b7280; }
+        ul { list-style: none; margin: 0; padding: 0; }
+        li { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; margin-bottom: 8px;
+            border-radius: 10px; background: #fff; box-shadow: 0 1px 3px rgba(17, 24, 39, .12); }
+        .color { flex: none; width: 6px; align-self: stretch; border-radius: 3px; }
+        .main { flex: 1; min-width: 0; }
+        .title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .meta { color: #4b5563; font-size: 12px; font-variant-numeric: tabular-nums; }
+        .meta.error { color: #b91c1c; }
+        .actions { flex: none; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+        li.group-head, li.media-head { background: none; box-shadow: none; border-radius: 0; align-items: center; }
+        li.group-head { margin: 16px 0 6px; padding: 0; gap: 8px; }
+        li.group-head:first-child { margin-top: 0; }
+        /* 组头：箭头＋组名＋进度整体是一个无边框按钮；子级都对齐到组名（箭头 16px + 间距 8px = 24px）。 */
+        .fold { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; margin-left: -6px;
+            padding: 6px; border: 0; border-radius: 8px; background: none; font-size: 14px; text-align: left; }
+        .fold:hover { background: #eef0f3; }
+        .fold svg { flex: none; color: #4b5563; transition: transform .15s ease; }
+        .fold[aria-expanded="false"] svg { transform: rotate(-90deg); }
+        li.media-head { margin: 0 0 6px 24px; padding: 0; gap: 8px; color: #374151; }
+        ul.grouped > li:not(.group-head):not(.media-head) { margin-left: 24px; }
+        /* 分组时媒体标题已写在上方，卡片不再重复标题，选段就是卡片的主行。 */
+        ul.grouped .title { display: none; }
+        ul.grouped .range { color: #111827; font-size: 13px; font-weight: 600; }
+        .group-name, .media-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .group-name { font-weight: 600; }
+        .ratio { color: #6b7280; font-size: 12px; font-weight: 400; white-space: nowrap; }
+        .meter { flex: none; width: 64px; height: 4px; background: #e5e7eb; border-radius: 2px; }
+        .meter > span { display: block; height: 100%; background: #2563eb; border-radius: 2px; }
+        .bar { height: 4px; margin-top: 6px; background: #e5e7eb; border-radius: 2px; }
+        .bar > span { display: block; height: 100%; background: #2563eb; border-radius: 2px; }
+        .bar[hidden], .file[hidden] { display: none; }
+        .file { color: #4b5563; font-size: 12px; margin-top: 4px; }
+        .note { margin: 16px 0 0; color: #6b7280; font-size: 12px; }
+        button { font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 6px; cursor: pointer;
+            border: 1px solid #d1d5db; background: #fff; color: #111827; }
+        button:hover { background: #f3f4f6; }
+        button:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+    </style>
+</head>
+<body>
+    <h1 id="wmc_title"></h1>
+    <div class="toolbar">
+        <div class="tabs" id="wmc_tabs" role="tablist">
+            <button type="button" role="tab" data-tab="running"></button>
+            <button type="button" role="tab" data-tab="done"></button>
+            <button type="button" role="tab" data-tab="open"></button>
+            <button type="button" role="tab" data-tab="all" aria-selected="true"></button>
+        </div>
+        <label class="group"><span id="wmc_group_label"></span>
+            <select id="wmc_group">
+                <option value="site"></option>
+                <option value="page"></option>
+                <option value="none"></option>
+            </select>
+        </label>
+        <div class="search">
+            <input id="wmc_search" type="search">
+            <button type="button" id="wmc_search_clear" hidden></button>
+        </div>
+    </div>
+    <p class="empty" id="wmc_empty" hidden></p>
+    <ul id="wmc_clips"></ul>
+    <p class="note" id="wmc_note"></p>
+    <!-- 执行宿主：上游 setRequestHeaders 依赖 js/init.js 的 G 与 js/function.js -->
+    <script src="/js/polyfill.js"></script>
+    <script src="/js/init.js"></script>
+    <script src="/js/function.js"></script>
+    <script src="/wmc/vendor/mp4box.all.min.js"></script>
+    <script src="/wmc/mp4cut.js"></script>
+    <script src="/wmc/dashcut.js"></script>
+    <script src="/lib/mux.min.js"></script>
+    <script src="/wmc/hlscut.js"></script>
+    <script src="/wmc/panel.js"></script>
+</body>
+</html>

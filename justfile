@@ -26,8 +26,9 @@ validate:
 prepare: validate
     @echo "准备构建目录..."
     mkdir -p build
-    cp -r ./{catch-script,css,img,js,lib,_locales} build/
-    cp -r ./*.{js,html} build/
+    cp -r ./{catch-script,css,img,js,lib,_locales,wmc} build/
+    cp ./manifest.json build/
+    find . -maxdepth 1 \( -name '*.js' -o -name '*.html' \) -exec cp {} build/ \;
     @echo "✅ 文件复制完成"
 
 # 检查图标文件
@@ -53,15 +54,15 @@ build-zip: prepare check-icons
     @echo "构建 ZIP 文件..."
     @cd build && \
         VERSION=$(node -p "require('./manifest.json').version") && \
-        zip -r "../cat-catch${VERSION}.zip" . && \
-        echo "✅ ZIP 文件已生成: cat-catch${VERSION}.zip"
+        zip -r "../web-media-clipper${VERSION}.zip" . && \
+        echo "✅ ZIP 文件已生成: web-media-clipper${VERSION}.zip"
 
 # 构建CRX文件
 build-crx: prepare check-icons generate-key
     @echo "构建 CRX 文件..."
     @VERSION=$(node -p "require('./manifest.json').version") && \
-    crx3 -p private-key.pem -o "cat-catch${VERSION}.crx" build/ && \
-    echo "✅ CRX 文件已生成: cat-catch${VERSION}.crx"
+    crx3 -p private-key.pem -o "web-media-clipper${VERSION}.crx" build/ && \
+    echo "✅ CRX 文件已生成: web-media-clipper${VERSION}.crx"
 
 # 快速构建（仅ZIP）
 quick: build-zip

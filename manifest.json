@@ -80,9 +80,44 @@
       ],
       "run_at": "document_start",
       "all_frames": true
+    },
+    {
+      "matches": [
+        "https://*/*",
+        "http://*/*"
+      ],
+      "js": [
+        "wmc/sessions.js",
+        "wmc/overlay.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://*/*",
+        "http://*/*"
+      ],
+      "js": [
+        "wmc/sprites.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://*/*",
+        "http://*/*"
+      ],
+      "js": [
+        "wmc/sprite-page.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_start",
+      "all_frames": true
     }
   ],
   "default_locale": "en",
-  "version": "2.7.4",
+  "version": "0.0.1",
   "incognito": "split"
 }

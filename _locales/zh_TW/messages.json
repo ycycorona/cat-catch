@@ -1057,5 +1057,91 @@
   },
   "fileName": {
     "message": "檔名"
+  },
+  "wmc_overview": {
+    "message": "總覽"
+  },
+  "wmc_detail": {
+    "message": "細節"
+  },
+  "wmc_zoomOut": {
+    "message": "縮小"
+  },
+  "wmc_zoomIn": {
+    "message": "放大"
+  },
+  "wmc_fullView": {
+    "message": "全覽"
+  },
+  "wmc_spanWindow": {
+    "message": "細節視窗改為 $MINUTES$ 分鐘，圍繞中點",
+    "placeholders": {
+      "minutes": {
+        "content": "$1"
+      }
+    }
+  },
+  "wmc_shortcuts": {
+    "message": "快捷鍵"
+  },
+  "wmc_keyPlay": {
+    "message": "播放 / 暫停"
+  },
+  "wmc_keyMarkIn": {
+    "message": "在目前時間設入點；再按則把入點挪到目前時間"
+  },
+  "wmc_keyMarkOut": {
+    "message": "在目前時間設出點，必須晚於入點"
+  },
+  "wmc_keyZoomIn": {
+    "message": "放大細節窗口，圍繞中點縮短起迄"
+  },
+  "wmc_keyZoomOut": {
+    "message": "縮小細節窗口，圍繞中點拉長起迄"
+  },
+  "wmc_keyPrevNext": {
+    "message": "上一段 / 下一段，窗口移過去，播放頭不動"
+  },
+  "wmc_keyHelp": {
+    "message": "打開或關閉這個說明"
+  },
+  "wmc_keyPinch": {
+    "message": "雙指捏合，或 Ctrl / ⌘ + 滾輪，縮放"
+  },
+  "wmc_keyPan": {
+    "message": "雙指左右滑，或 Shift + 滾輪"
+  },
+  "wmc_keyScroll": {
+    "message": "雙指上下滑，捲動選段列表"
+  },
+  "wmc_studioMode": {
+    "message": "工作室"
+  },
+  "wmc_sessionNew": {
+    "message": "新工作階段"
+  },
+  "wmc_sessionResume": {
+    "message": "恢復"
+  },
+  "wmc_sessionEmpty": {
+    "message": "這個頁面還沒有儲存的分段"
+  },
+  "wmc_sessionMismatch": {
+    "message": "這段紀錄放不進目前的影片"
+  },
+  "wmc_sessionSegments": {
+    "message": "$1 段"
+  },
+  "wmc_entryLabel": {
+    "message": "選段下載"
+  },
+  "wmc_showEntry": {
+    "message": "在播放器上顯示入口"
+  },
+  "wmc_reasonTooShort": {
+    "message": "影片不足 1 秒，只能下載整段"
+  },
+  "wmc_rowTooShort": {
+    "message": "選段至少 1 秒"
   }
 }

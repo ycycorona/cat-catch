@@ -1,9 +1,171 @@
 {
+  "wmc_deleteSegment": {
+    "message": "Delete segment"
+  },
+  "wmc_segmentStart": {
+    "message": "Segment start"
+  },
+  "wmc_segmentEnd": {
+    "message": "Segment end"
+  },
+  "wmc_maxSegments": {
+    "message": "↗ Open the standard view to add more"
+  },
+  "wmc_playPause": {
+    "message": "Play, pause"
+  },
+  "wmc_tipClose": {
+    "message": "Close"
+  },
+  "wmc_closeOverlay": {
+    "message": "Close controller"
+  },
+  "wmc_activeDownloads": {
+    "message": "Active downloads: $1"
+  },
+  "wmc_submitFailed": {
+    "message": "Could not submit download. Please try again."
+  },
+  "wmc_wholeStarted": {
+    "message": "Started downloading the entire video in a new background tab"
+  },
+  "wmc_wholeHandoff": {
+    "message": "Entire video · Downloading in a background tab"
+  },
   "catCatch": {
     "message": "Web Media Clipper"
   },
   "description": {
     "message": "Detect media on web pages, pick time ranges and download them"
+  },
+  "wmc_panelTitle": {
+    "message": "Media Clips"
+  },
+  "wmc_play": {
+    "message": "Play"
+  },
+  "wmc_pause": {
+    "message": "Pause"
+  },
+  "wmc_addSegment": {
+    "message": "Add clip"
+  },
+  "wmc_download": {
+    "message": "Download"
+  },
+  "wmc_needEnd": {
+    "message": "Mark the end before downloading"
+  },
+  "wmc_statusQueued": {
+    "message": "Queued"
+  },
+  "wmc_statusRunning": {
+    "message": "Downloading"
+  },
+  "wmc_statusDone": {
+    "message": "Done"
+  },
+  "wmc_statusFailed": {
+    "message": "Failed"
+  },
+  "wmc_statusCanceled": {
+    "message": "Canceled"
+  },
+  "wmc_statusInterrupted": {
+    "message": "Interrupted"
+  },
+  "wmc_tabRunning": {
+    "message": "Downloading $1"
+  },
+  "wmc_tabDone": {
+    "message": "Done $1"
+  },
+  "wmc_tabOpen": {
+    "message": "Incomplete $1"
+  },
+  "wmc_tabAll": {
+    "message": "All $1"
+  },
+  "wmc_search": {
+    "message": "Search title, site, or file name"
+  },
+  "wmc_searchClear": {
+    "message": "Clear"
+  },
+  "wmc_noMatch": {
+    "message": "No matching tasks"
+  },
+  "wmc_groupBy": {
+    "message": "Group"
+  },
+  "wmc_groupSite": {
+    "message": "By site"
+  },
+  "wmc_groupPage": {
+    "message": "By page"
+  },
+  "wmc_groupNone": {
+    "message": "No grouping"
+  },
+  "wmc_groupOther": {
+    "message": "Other"
+  },
+  "wmc_groupRatio": {
+    "message": "$1/$2 done"
+  },
+  "wmc_cancelOpen": {
+    "message": "Cancel unfinished"
+  },
+  "wmc_retryFailed": {
+    "message": "Retry failed"
+  },
+  "wmc_clearDone": {
+    "message": "Clear finished"
+  },
+  "wmc_openSource": {
+    "message": "Open source page"
+  },
+  "wmc_fold": {
+    "message": "Collapse"
+  },
+  "wmc_queuePos": {
+    "message": "Queued · #$1"
+  },
+  "wmc_elapsed": {
+    "message": "Elapsed $1"
+  },
+  "wmc_eta": {
+    "message": "Left $1"
+  },
+  "wmc_openFile": {
+    "message": "Open"
+  },
+  "wmc_showFile": {
+    "message": "Show in folder"
+  },
+  "wmc_fileGone": {
+    "message": "File is no longer there"
+  },
+  "wmc_delete": {
+    "message": "Delete"
+  },
+  "wmc_panelNote": {
+    "message": "One download at a time, in the order submitted. There is no pause: retry starts over. Deleting a record does not delete the saved file."
+  },
+  "wmc_cancel": {
+    "message": "Cancel"
+  },
+  "wmc_retry": {
+    "message": "Retry"
+  },
+  "wmc_userRange": {
+    "message": "Selected"
+  },
+  "wmc_actualRange": {
+    "message": "Actual"
+  },
+  "wmc_leaveConfirm": {
+    "message": "Downloads are still in progress. Closing this panel will interrupt them."
   },
   "confirm": {
     "message": "Confirm"
@@ -177,19 +339,19 @@
     "message": "Option"
   },
   "titleOption": {
-    "message": "cat-catch Options"
+    "message": "Web Media Clipper Options"
   },
   "titleDownload": {
-    "message": "cat-catch Download"
+    "message": "Web Media Clipper Download"
   },
   "titleM3U8": {
-    "message": "cat-catch M3U8 Parser"
+    "message": "Web Media Clipper M3U8 Parser"
   },
   "titleJson": {
-    "message": "cat-catch JSON Formatter"
+    "message": "Web Media Clipper JSON Formatter"
   },
   "titledash": {
-    "message": "cat-catch DASH Parser"
+    "message": "Web Media Clipper DASH Parser"
   },
   "suffix": {
     "message": "Suffix"
@@ -327,7 +489,7 @@
     "message": "Defaults to the current browser's User-Agent."
   },
   "alwaysDisableCatCatcher": {
-    "message": "Never Enable Cat-Catch Downloader"
+    "message": "Never Enable the Built-in Downloader"
   },
   "autoClosePageAfterDownload": {
     "message": "Automatically Close Page After Download"
@@ -1057,5 +1219,262 @@
   },
   "fileName": {
     "message": "File Name"
+  },
+  "wmc_currentMedia": {
+    "message": "Current media"
+  },
+  "wmc_standardView": {
+    "message": "Expand standard view"
+  },
+  "wmc_compactView": {
+    "message": "Collapse to compact view"
+  },
+  "wmc_segmentDuration": {
+    "message": "Duration"
+  },
+  "wmc_segmentsSummary": {
+    "message": "$1 clips · Total $2"
+  },
+  "wmc_invalidSegmentTime": {
+    "message": "Enter a valid time (HH:MM:SS.mmm); start must precede end within the media duration"
+  },
+  "wmc_locateSegment": {
+    "message": "Go to clip start"
+  },
+  "wmc_resizeOverlay": {
+    "message": "Resize clip controls"
+  },
+  "wmc_entryLabel": {
+    "message": "Clip & download"
+  },
+  "wmc_showEntry": {
+    "message": "Show entry on the player"
+  },
+  "wmc_autoShowOverlay": {
+    "message": "Show controls automatically"
+  },
+  "wmc_overlaySettingFailed": {
+    "message": "Cannot save the controls setting. Try again."
+  },
+  "wmc_followPlayback": {
+    "message": "Follow latest playback"
+  },
+  "wmc_videoNumber": {
+    "message": "Video $1"
+  },
+  "wmc_confirmSwitchMedia": {
+    "message": "Switch media and clear unsubmitted clips?"
+  },
+  "wmc_openOverlay": {
+    "message": "Open clip controls"
+  },
+  "wmc_noVideo": {
+    "message": "Play a video on this page first"
+  },
+  "wmc_cannotOpenOverlay": {
+    "message": "Clip controls cannot open on this page"
+  },
+  "wmc_reasonNoRange": {
+    "message": "The server does not support ranged requests"
+  },
+  "wmc_reasonUnknownSource": {
+    "message": "Cannot determine the media source"
+  },
+  "wmc_reasonLive": {
+    "message": "Live streams cannot be clipped"
+  },
+  "wmc_reasonUnsupported": {
+    "message": "This media cannot be clipped"
+  },
+  "wmc_overview": {
+    "message": "Overview"
+  },
+  "wmc_detail": {
+    "message": "Detail"
+  },
+  "wmc_zoomOut": {
+    "message": "Zoom out"
+  },
+  "wmc_zoomIn": {
+    "message": "Zoom in"
+  },
+  "wmc_fullView": {
+    "message": "Entire"
+  },
+  "wmc_spanWindow": {
+    "message": "Set the detail window to $MINUTES$ minutes, around its midpoint",
+    "placeholders": {
+      "minutes": {
+        "content": "$1"
+      }
+    }
+  },
+  "wmc_shortcuts": {
+    "message": "Shortcuts"
+  },
+  "wmc_keyPlay": {
+    "message": "Play / pause"
+  },
+  "wmc_keyMarkIn": {
+    "message": "Set the in point, or move it to the current time"
+  },
+  "wmc_keyMarkOut": {
+    "message": "Set the out point. It must be after the in point"
+  },
+  "wmc_keyZoomIn": {
+    "message": "Zoom in on the detail window, around its midpoint"
+  },
+  "wmc_keyZoomOut": {
+    "message": "Zoom out the detail window, around its midpoint"
+  },
+  "wmc_keyPrevNext": {
+    "message": "Previous / next clip. The window follows; the playhead stays"
+  },
+  "wmc_keyHelp": {
+    "message": "Open or close this guide"
+  },
+  "wmc_keyPinch": {
+    "message": "Pinch, or Ctrl / ⌘ + scroll, to zoom"
+  },
+  "wmc_keyPan": {
+    "message": "Two-finger horizontal scroll, or Shift + scroll"
+  },
+  "wmc_keyScroll": {
+    "message": "Two-finger vertical scroll moves the clip list"
+  },
+  "wmc_studioMode": {
+    "message": "Studio mode"
+  },
+  "wmc_sessionNew": {
+    "message": "New"
+  },
+  "wmc_sessionResume": {
+    "message": "Resume"
+  },
+  "wmc_sessionEmpty": {
+    "message": "No saved clips for this page"
+  },
+  "wmc_sessionMismatch": {
+    "message": "This save does not fit the current video"
+  },
+  "wmc_sessionSegments": {
+    "message": "$1 clips"
+  },
+  "wmc_markIn": {
+    "message": "In"
+  },
+  "wmc_markOut": {
+    "message": "Out"
+  },
+  "wmc_moreSegments": {
+    "message": "More clips"
+  },
+  "wmc_markInTip": {
+    "message": "Set the in point at the current time (I)"
+  },
+  "wmc_markOutTip": {
+    "message": "Set the out point at the current time (O); Esc to discard"
+  },
+  "wmc_moreSegmentsTip": {
+    "message": "The compact view holds 2 clips; open the standard view to add more"
+  },
+  "wmc_add15": {
+    "message": "＋ Add 15 s"
+  },
+  "wmc_add15Tip": {
+    "message": "Add a 15-second clip at the playhead"
+  },
+  "wmc_downloadWhole": {
+    "message": "Download full video"
+  },
+  "wmc_downloadN": {
+    "message": "Download $1 clips"
+  },
+  "wmc_downloadNTotal": {
+    "message": "Download $1 clips · $2"
+  },
+  "wmc_downloadWholeTip": {
+    "message": "No clips selected: download the whole video in a background tab"
+  },
+  "wmc_downloadSegsTip": {
+    "message": "Each clip is saved as its own file"
+  },
+  "wmc_outAfterIn": {
+    "message": "The out point must come after the in point"
+  },
+  "wmc_submitted": {
+    "message": "Submitted $1 clips"
+  },
+  "wmc_viewTasks": {
+    "message": "View in task manager"
+  },
+  "wmc_undo": {
+    "message": "Undo"
+  },
+  "wmc_switchedMedia": {
+    "message": "Switched to “$1” and cleared $2 clips"
+  },
+  "wmc_dismiss": {
+    "message": "Dismiss"
+  },
+  "wmc_pillRunning": {
+    "message": "$1 downloading"
+  },
+  "wmc_pillDone": {
+    "message": "$1 done"
+  },
+  "wmc_pillFailed": {
+    "message": "$1 failed"
+  },
+  "wmc_openTasks": {
+    "message": "Open task manager"
+  },
+  "wmc_tasks": {
+    "message": "Tasks"
+  },
+  "wmc_window": {
+    "message": "Window"
+  },
+  "wmc_sessions": {
+    "message": "Sessions"
+  },
+  "wmc_sessionNewItem": {
+    "message": "＋ New session (keep current clips in the list, clear the timeline)"
+  },
+  "wmc_sessionSaved": {
+    "message": "Saved on this page"
+  },
+  "wmc_keyEsc": {
+    "message": "Discard pending in point / close menu / leave studio"
+  },
+  "wmc_keyDelete": {
+    "message": "Delete the selected clip"
+  },
+  "wmc_rowFormat": {
+    "message": "Use HH:MM:SS.mmm"
+  },
+  "wmc_rowOverflow": {
+    "message": "End is past the video length $1"
+  },
+  "wmc_rowOrder": {
+    "message": "End $1 is not after start $2"
+  },
+  "wmc_reasonTooShort": {
+    "message": "Video is under 1 second; download it whole"
+  },
+  "wmc_rowTooShort": {
+    "message": "Clip must be at least 1 second long"
+  },
+  "wmc_fixRows": {
+    "message": "Fix the clip times to download"
+  },
+  "wmc_markingFoot": {
+    "message": "Marking clip $1: press O for the out point, Esc to discard"
+  },
+  "wmc_noSegmentsFoot": {
+    "message": "With no clips, only the full video can be downloaded"
+  },
+  "wmc_drag": {
+    "message": "Drag"
   }
 }
