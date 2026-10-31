@@ -10,3 +10,5 @@ dist/
 .orca.local.yaml
 .wmc.local.json
 .alma-snapshots
+
+.DS_Store
