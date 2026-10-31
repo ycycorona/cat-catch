@@ -463,9 +463,9 @@
                 <span class="zlabel"></span>
                 <span class="zgroup" role="group">
                 <button class="zoom-out" type="button">−</button>
+                <button class="zoom-span" type="button" data-span="60">1 min</button>
                 <button class="zoom-span" type="button" data-span="300">5 min</button>
                 <button class="zoom-span" type="button" data-span="900">15 min</button>
-                <button class="zoom-span" type="button" data-span="1800">30 min</button>
                 <button class="zoom-full" type="button"></button>
                 <button class="zoom-in" type="button">+</button>
                 </span>
@@ -756,12 +756,14 @@
             if (!(rect.width > 0) || !(video.duration > 0)) return 0;
             return clamp((clientX - rect.left) / rect.width * video.duration, 0, video.duration);
         };
-        // 贴到片头或片尾时窗口没法再居中：光标留在落点，选块靠齐那一侧。
-        const centerWindow = (time) => {
-            const span = ensureView().e - ensureView().s;
+        // 贴到片头或片尾时窗口没法再居中：光标留在落点，窗口靠齐那一侧。
+        const centerWindow = (time, span = ensureView().e - ensureView().s) => {
             const duration = video.duration || 0;
-            const startAt = clamp(time - span / 2, 0, Math.max(0, duration - span));
-            setWindow(startAt, startAt + span);
+            const minSpan = duration > 0 ? Math.min(MIN_SPAN, duration) : MIN_SPAN;
+            const width = duration > 0 ? clamp(span, minSpan, duration) : Math.max(span, MIN_SPAN);
+            const at = duration > 0 ? clamp(time || 0, 0, duration) : 0;
+            const startAt = clamp(at - width / 2, 0, Math.max(0, (duration || width) - width));
+            setWindow(startAt, startAt + width);
         };
         const focusOverview = (time) => {
             video.currentTime = time;
@@ -774,11 +776,8 @@
             const ratio = (c - v.s) / (v.e - v.s || 1);
             setWindow(c - ratio * span, c - ratio * span + span);
         };
-        const setSpan = (seconds) => {
-            const v = ensureView();
-            const center = (v.s + v.e) / 2;
-            setWindow(center - seconds / 2, center + seconds / 2);
-        };
+        // 点加减或快捷档时围着播放头。顶到片头或片尾则贴边。
+        const setSpan = (seconds) => centerWindow(video.currentTime, seconds);
         const detailTime = (clientX) => {
             const rect = lane.getBoundingClientRect();
             const v = ensureView();
@@ -1328,8 +1327,8 @@
         bar.addEventListener("click", (ev) => {
             if (!keys.hidden && !keys.contains(ev.target) && ev.target !== hintBtn) toggleKeys(false);
         });
-        root.querySelector(".zoom-in").addEventListener("click", () => zoomWindow(0.5));
-        root.querySelector(".zoom-out").addEventListener("click", () => zoomWindow(2));
+        root.querySelector(".zoom-in").addEventListener("click", () => setSpan((ensureView().e - ensureView().s) * 0.5));
+        root.querySelector(".zoom-out").addEventListener("click", () => setSpan((ensureView().e - ensureView().s) * 2));
         for (const button of spanButtons) {
             button.addEventListener("click", () => setSpan(Number(button.dataset.span)));
         }
@@ -1362,8 +1361,8 @@
             }
             if (!plain || !standard) return;
             if (ev.key === " " && !ev.target.closest("button")) { ev.preventDefault(); if (!ev.repeat) play.click(); }
-            else if (ev.key === "+" || ev.key === "=") { ev.preventDefault(); zoomWindow(0.5); }
-            else if (ev.key === "-" || ev.key === "−") { ev.preventDefault(); zoomWindow(2); }
+            else if (ev.key === "+" || ev.key === "=") { ev.preventDefault(); setSpan((ensureView().e - ensureView().s) * 0.5); }
+            else if (ev.key === "-" || ev.key === "−") { ev.preventDefault(); setSpan((ensureView().e - ensureView().s) * 2); }
             else if (ev.key === "ArrowLeft") { ev.preventDefault(); showSegment(-1); }
             else if (ev.key === "ArrowRight") { ev.preventDefault(); showSegment(1); }
         });
@@ -2017,14 +2016,15 @@
             bar.classList.toggle("standard", standard);
             const controls = root.querySelector(".controls");
             const identity = root.querySelector(".identity");
+            // 媒体行右侧按展开、工作室、下载排。关闭贴在最后。标准视图的下载留在选段列表底栏。
             if (standard) {
                 identity.prepend(handle);
-                identity.append(view, close);
+                identity.append(view, studioBtn, close);
                 controls.append(pill);
                 root.querySelector(".footer-actions").append(dl);
             } else {
                 identity.prepend(handle);
-                identity.append(dl, pill, view, close);
+                identity.append(view, studioBtn, dl, pill, close);
             }
             if (!standard) hidePreview();
             else refreshSprites();
