@@ -1606,86 +1606,37 @@
             const rect = host.getBoundingClientRect();
             if (rect.width > 0) fit(rect.left, rect.top);
         };
-        // 浮窗是 fixed。向下滚动页面把播放窗上移，浮窗才能落在下沿外面；上沿碰到视口顶就停。
-        const nudgeBelow = (anchor, panelHeight) => {
-            if (anchor.bottom <= 0 || anchor.top >= window.innerHeight) return false;
-            let delta = Math.min(anchor.bottom + GAP + panelHeight - window.innerHeight, Math.max(0, anchor.top));
-            if (!(delta > 1)) return false;
-            const candidates = [];
-            const seen = new Set();
-            const add = (el) => {
-                if (!el || seen.has(el)) return;
-                seen.add(el);
-                candidates.push(el);
-            };
-            let node = video.parentElement;
-            while (node && node !== document) {
-                add(node);
-                node = node.parentElement;
-            }
-            add(document.scrollingElement);
-            let moved = false;
-            for (const el of candidates) {
-                if (!(delta > 1)) break;
-                const oy = getComputedStyle(el).overflowY;
-                if (el !== document.scrollingElement && oy !== "auto" && oy !== "scroll" && oy !== "overlay") continue;
-                const room = el.scrollHeight - el.clientHeight - el.scrollTop;
-                if (!(room > 1)) continue;
-                const beforeTop = video.getBoundingClientRect().top;
-                const step = Math.min(delta, room, Math.max(0, beforeTop));
-                if (!(step > 1)) continue;
-                const prev = el.scrollTop;
-                const behavior = el.style.scrollBehavior;
-                el.style.scrollBehavior = "auto";
-                el.scrollTop = prev + step;
-                el.style.scrollBehavior = behavior;
-                const shifted = beforeTop - video.getBoundingClientRect().top;
-                if (shifted > 0.5) {
-                    moved = true;
-                    delta -= shifted;
-                } else {
-                    el.style.scrollBehavior = "auto";
-                    el.scrollTop = prev;
-                    el.style.scrollBehavior = behavior;
-                }
-            }
-            return moved;
-        };
+        // 浮窗是 fixed，跟着播放窗走：落在下沿外，放不下就贴视口边；播放窗整个滚出视口时贴视口底边。
         const place = () => {
             if (studio) { layoutStudio(); return; }
-            let anchor = playbackAnchor(video);
+            const anchor = playbackAnchor(video);
             const size = sizes[standard ? "standard" : "compact"];
             if (!anchor) {
                 fit(window.innerWidth - size.width - MARGIN, window.innerHeight - size.height - MARGIN);
                 return;
             }
-            const layoutAt = (box) => {
-                if (!sizes.compact.explicit) sizes.compact.width = box.width;
-                if (!sizes.standard.explicit) sizes.standard.width = box.width;
-                const desiredTop = box.bottom + GAP;
-                fit(box.left, desiredTop);
-                const placed = host.getBoundingClientRect();
-                if (!standard && placed.top < desiredTop - 1) {
-                    const barTop = box.barTop ?? box.bottom - NATIVE_BAR;
-                    const above = barTop - GAP - placed.height;
-                    if (above >= box.top + TOP_VISIBLE) fit(box.left, above);
-                }
-                const panel = host.getBoundingClientRect();
-                const minTop = box.top + TOP_VISIBLE;
-                if (panel.top >= minTop - 1 || box.bottom <= 0 || box.top >= window.innerHeight) return;
-                const room = Math.max(1, window.innerHeight - minTop);
-                if (panel.height > room) {
-                    host.style.height = `${room}px`;
-                    if (standard) root.querySelector(".editor").style.flex = "1";
-                }
-                const height = host.getBoundingClientRect().height;
-                host.style.top = `${clamp(minTop, 0, Math.max(0, window.innerHeight - height))}px`;
-            };
-            layoutAt(anchor);
-            if (nudgeBelow(anchor, host.getBoundingClientRect().height)) {
-                anchor = playbackAnchor(video) || anchor;
-                layoutAt(anchor);
+            if (!sizes.compact.explicit) sizes.compact.width = anchor.width;
+            if (!sizes.standard.explicit) sizes.standard.width = anchor.width;
+            if (anchor.bottom <= 0 || anchor.top >= window.innerHeight) {
+                fit(anchor.left, window.innerHeight);
+                return;
             }
+            const desiredTop = anchor.bottom + GAP;
+            fit(anchor.left, desiredTop);
+            const placed = host.getBoundingClientRect();
+            if (!standard && placed.top < desiredTop - 1) {
+                const barTop = anchor.barTop ?? anchor.bottom - NATIVE_BAR;
+                const above = barTop - GAP - placed.height;
+                if (above >= anchor.top + TOP_VISIBLE) fit(anchor.left, above);
+            }
+        };
+        let placeFrame = 0;
+        const follow = () => {
+            if (!docked || studio || placeFrame || host.style.display === "none") return;
+            placeFrame = requestAnimationFrame(() => {
+                placeFrame = 0;
+                place();
+            });
         };
 
         const render = () => {
@@ -2335,6 +2286,11 @@
                 render();
             }, { signal });
         }
+        // 页面或任一滚动容器滚动、播放器换尺寸（如剧场模式）时重新贴位。
+        document.addEventListener("scroll", follow, { capture: true, passive: true, signal });
+        const videoSize = new ResizeObserver(follow);
+        videoSize.observe(video);
+        signal.addEventListener("abort", () => videoSize.disconnect());
         window.addEventListener("resize", () => {
             if (docked) place();
             else {
