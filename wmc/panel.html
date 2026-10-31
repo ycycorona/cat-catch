@@ -30,7 +30,18 @@
         .actions { flex: none; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
         li.group-head, li.media-head { background: none; box-shadow: none; border-radius: 0; align-items: center; }
         li.group-head { margin: 16px 0 6px; padding: 0; gap: 8px; }
-        li.media-head { margin: 0 0 6px 16px; padding: 0; gap: 8px; color: #374151; }
+        li.group-head:first-child { margin-top: 0; }
+        /* 组头：箭头＋组名＋进度整体是一个无边框按钮；子级都对齐到组名（箭头 16px + 间距 8px = 24px）。 */
+        .fold { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; margin-left: -6px;
+            padding: 6px; border: 0; border-radius: 8px; background: none; font-size: 14px; text-align: left; }
+        .fold:hover { background: #eef0f3; }
+        .fold svg { flex: none; color: #4b5563; transition: transform .15s ease; }
+        .fold[aria-expanded="false"] svg { transform: rotate(-90deg); }
+        li.media-head { margin: 0 0 6px 24px; padding: 0; gap: 8px; color: #374151; }
+        ul.grouped > li:not(.group-head):not(.media-head) { margin-left: 24px; }
+        /* 分组时媒体标题已写在上方，卡片不再重复标题，选段就是卡片的主行。 */
+        ul.grouped .title { display: none; }
+        ul.grouped .range { color: #111827; font-size: 13px; font-weight: 600; }
         .group-name, .media-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .group-name { font-weight: 600; }
         .ratio { color: #6b7280; font-size: 12px; font-weight: 400; white-space: nowrap; }

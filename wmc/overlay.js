@@ -214,7 +214,8 @@
             button { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: center;
                 width: 24px; height: 24px; border-radius: 6px; color: #f9fafb; cursor: pointer; font-size: 13px; }
             button:hover { background: rgba(255,255,255,.14); }
-            button:focus-visible { outline: 2px solid #60a5fa; }
+            /* [WMC] 焦点环离开按钮 2px，跟着圆角走，不压住按钮自己的边框。 */
+            button:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
             button:disabled { opacity: .4; cursor: not-allowed; background: none; }
             .play { width: 28px; height: 28px; background: rgba(255,255,255,.12); }
             .identity button.view, .identity button.close { width: 28px; height: 28px; }
@@ -288,6 +289,8 @@
             .zgroup { display: flex; border: 1px solid #475569; border-radius: 6px; overflow: hidden; }
             .zgroup button { border-radius: 0; border-right: 1px solid #475569 !important; }
             .zgroup button:last-child { border-right: 0 !important; }
+            /* [WMC] 分段组 overflow:hidden 会裁掉外侧焦点环，组内改画在按钮内侧。 */
+            .zgroup button:focus-visible { outline-offset: -2px; border-radius: 4px; }
             .standard .controls > button.pill { margin-left: 4px; }
             .axis { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 6px; align-items: end; }
             .axis + .axis { margin-top: 4px; }
@@ -422,10 +425,12 @@
             .editor-footer button.dl, .editor-footer button.whole { height: 30px; }
             button.whole { width: auto; padding: 0 10px; border: 1px solid #475569; white-space: nowrap; font-size: 12px; }
             /* [WMC] 任务是去处，跟工具行的分簇一样用竖线隔开。下载才用框。 */
-            button.tasks { width: auto; height: 22px; margin-left: 10px; padding: 0 2px 0 10px; border: 0;
-                border-left: 1px solid #374151; border-radius: 0; gap: 5px; flex: none;
-                color: #93c5fd; background: transparent; font-size: 12px; white-space: nowrap; }
-            button.tasks:hover { background: none; color: #dbeafe; }
+            /* [WMC] 竖线画在按钮外（::before），按钮本身是圆角，悬停底色与焦点环只框住图标和文字。 */
+            button.tasks { position: relative; width: auto; height: 24px; margin-left: 16px; padding: 0 8px; border: 0;
+                gap: 5px; flex: none; color: #93c5fd; background: transparent; font-size: 12px; white-space: nowrap; }
+            button.tasks::before { content: ""; position: absolute; left: -8px; top: 5px; bottom: 5px; width: 1px;
+                background: #374151; }
+            button.tasks:hover { background: rgba(147,197,253,.12); color: #dbeafe; }
             button.tasks svg { display: block; flex: none; }
             .bar:not(.standard) button.whole { display: none; }
             .bar.roomy:not(.standard) .controls { flex-wrap: wrap; }

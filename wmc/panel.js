@@ -37,7 +37,10 @@
     groupEl.querySelector("[value=none]").textContent = t("wmc_groupNone");
     const fmt = (sec) => {
         const s = Math.max(0, Math.floor(sec || 0));
-        return `${String(Math.floor(s / 60)).padStart(2, "0")}-${String(s % 60).padStart(2, "0")}`;
+        const pad = (n) => String(n).padStart(2, "0");
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        return h ? `${h}:${pad(m)}:${pad(s % 60)}` : `${m}:${pad(s % 60)}`;
     };
 
     let jobs = [];
@@ -501,12 +504,15 @@
         head.className = "group-head";
         head.dataset.group = entry.key;
         const open = !collapsed[foldKey(entry.key)];
+        // 整个组头（箭头＋组名＋进度）都是折叠按钮，点击面够大；操作按钮放在它外面。
         const fold = document.createElement("button");
         fold.type = "button";
         fold.className = "fold";
         fold.setAttribute("aria-expanded", open ? "true" : "false");
-        fold.setAttribute("aria-label", t("wmc_fold"));
-        fold.textContent = open ? "▾" : "▸";
+        fold.title = t("wmc_fold");
+        fold.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">' +
+            '<path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" ' +
+            'stroke-linecap="round" stroke-linejoin="round"/></svg>';
         fold.addEventListener("click", () => {
             const key = foldKey(entry.key);
             if (collapsed[key]) delete collapsed[key];
@@ -537,7 +543,8 @@
             actions.append(button(t("wmc_retryFailed"), () => retryIds(idsOf(real, (job) => job.status === "failed" || job.status === "interrupted"))));
         }
         if (done) actions.append(button(t("wmc_clearDone"), () => clearDone(idsOf(real, (job) => job.status === "done"))));
-        head.append(fold, name, ratio, meter, actions);
+        fold.append(name, ratio, meter);
+        head.append(fold, actions);
         return head;
     }
     function mediaHead(entry) {
@@ -576,6 +583,7 @@
                     }
                 }
             }
+            list.classList.toggle("grouped", groupBy !== "none");
             list.replaceChildren(frag);
         } else {
             for (const job of items) paint(rows.get(rowId(job)), job);
