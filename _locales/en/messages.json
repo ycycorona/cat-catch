@@ -1244,6 +1244,12 @@
   "wmc_resizeOverlay": {
     "message": "Resize clip controls"
   },
+  "wmc_entryLabel": {
+    "message": "Clip & download"
+  },
+  "wmc_showEntry": {
+    "message": "Show entry on the player"
+  },
   "wmc_autoShowOverlay": {
     "message": "Show controls automatically"
   },
@@ -1452,6 +1458,12 @@
   },
   "wmc_rowOrder": {
     "message": "End $1 is not after start $2"
+  },
+  "wmc_reasonTooShort": {
+    "message": "Video is under 1 second; download it whole"
+  },
+  "wmc_rowTooShort": {
+    "message": "Clip must be at least 1 second long"
   },
   "wmc_fixRows": {
     "message": "Fix the clip times to download"

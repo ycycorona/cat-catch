@@ -20,6 +20,7 @@
         expand: svg(14, '<path d="M8 2h4v4M6 12H2V8M12 2 8 6M2 12l4-4"/>'),
         collapse: svg(14, '<path d="M12 6H8V2M2 8h4v4M8 6l4-4M6 8l-4 4"/>'),
         tasks: svg(14, '<path d="M3 4h8M3 7h8M3 10h5"/>'),
+        scissors: svg(15, '<circle cx="3.5" cy="3.5" r="2"/><circle cx="3.5" cy="10.5" r="2"/><path d="M5.2 4.6 12.5 11M5.2 9.4 12.5 3"/>'),
         play: '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 2 10 6 3 10Z" fill="currentColor"/></svg>',
         pause: '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 2v8M9 2v8" stroke="currentColor" stroke-width="2"/></svg>',
     };
@@ -36,11 +37,16 @@
     };
     let jobs = [];
 
-    chrome.storage.local.get({ wmcAutoShow: false }, (settings) => {
-        if (!chrome.runtime.lastError) autoShow = settings.wmcAutoShow === true;
+    let showEntry = true;
+    chrome.storage.local.get({ wmcAutoShow: false, wmcShowEntry: true }, (settings) => {
+        if (chrome.runtime.lastError) return;
+        autoShow = settings.wmcAutoShow === true;
+        showEntry = settings.wmcShowEntry !== false;
     });
     chrome.storage.onChanged.addListener((changes, area) => {
-        if (area === "local" && changes.wmcAutoShow) autoShow = changes.wmcAutoShow.newValue === true;
+        if (area !== "local") return;
+        if (changes.wmcAutoShow) autoShow = changes.wmcAutoShow.newValue === true;
+        if (changes.wmcShowEntry) showEntry = changes.wmcShowEntry.newValue !== false;
     });
 
     const msg = (key) => chrome.i18n.getMessage(key);
@@ -89,6 +95,9 @@
     // 自动跟随保持原规则；手动选择后，其他视频播放不再抢占控制器。
     function tryMount(video) {
         if (dismissed || !followPlayback || (!autoShow && !current) || latestVideo !== video) return;
+        // 推荐卡片的悬停预览不抢占：面积不到当前视频四分之一就不跟。
+        const area = (v) => { const r = v.getBoundingClientRect(); return r.width * r.height; };
+        if (current && area(video) < area(current.video) / 4) return;
         selectVideo(video);
     }
 
@@ -147,6 +156,116 @@
     }).observe(document.documentElement, { childList: true, subtree: true, attributes: true,
         attributeFilter: ["title", "aria-label"] });
 
+    // [WMC] 播放器入口：指针在视频上移动时，右上角出「选段下载」，停 2.5 秒或离开就收；
+    // 浮窗已为这个视频打开、全屏、小预览窗时不出。原生界面占着右上角时，往下让到空处。
+    const ENTRY_IDLE = 2500;
+    let entryHost = null, entryBtn = null, entryVideo = null, entryTimer = 0, entryFrame = 0, entryRecheck = 0;
+    const entryShown = () => entryHost?.classList.contains("on");
+    const hideEntry = () => {
+        clearTimeout(entryTimer);
+        clearTimeout(entryRecheck);
+        entryHost?.classList.remove("on");
+        entryVideo = null;
+    };
+    const ensureEntry = () => {
+        if (entryHost) return;
+        entryHost = document.createElement("div");
+        entryHost.style.cssText = "position:fixed;left:0;top:0;z-index:2147483000;";
+        const shadow = entryHost.attachShadow({ mode: "closed" });
+        const sheet = new CSSStyleSheet();
+        sheet.replaceSync(`
+            /* 平时只是一枚半透明小圆钮，指上去才向左展开文字；宿主定位在右缘，展开不越出画面。 */
+            :host { all: initial; opacity: 0; pointer-events: none; transition: opacity .15s; }
+            :host(.on) { opacity: 1; pointer-events: auto; }
+            button { all: unset; position: absolute; right: 0; top: 0; box-sizing: border-box; display: flex; align-items: center;
+                height: 24px; padding: 0 5px; border-radius: 12px; cursor: pointer; white-space: nowrap;
+                font: 12px/1 system-ui, -apple-system, "Segoe UI", "PingFang SC", sans-serif; color: rgba(255,255,255,.85);
+                background: rgba(0,0,0,.32); backdrop-filter: blur(4px); transition: background .15s, color .15s, padding .15s; }
+            span { max-width: 0; overflow: hidden; opacity: 0; transition: max-width .15s, opacity .15s, margin .15s; }
+            /* 指上去换成磨砂白底深色字，像播放器自带的提示，不用纯蓝。 */
+            button:hover, button:focus-visible { padding-right: 9px; color: #1f2937; background: rgba(255,255,255,.88); }
+            button:hover span, button:focus-visible span { max-width: 6em; margin-left: 4px; opacity: 1; }
+            button:focus-visible { outline: 2px solid rgba(255,255,255,.6); outline-offset: 1px; }
+            svg { flex: none; width: 14px; height: 14px; pointer-events: none; }
+        `);
+        shadow.adoptedStyleSheets = [sheet];
+        entryBtn = document.createElement("button");
+        entryBtn.type = "button";
+        entryBtn.innerHTML = `${ICON.scissors}<span></span>`;
+        entryBtn.querySelector("span").textContent = msg("wmc_entryLabel");
+        entryBtn.setAttribute("aria-label", msg("wmc_entryLabel"));
+        entryBtn.addEventListener("click", () => {
+            const video = entryVideo;
+            hideEntry();
+            if (!video || !selectVideo(video, true)) return;
+            dismissed = false;
+            current.show();
+        });
+        shadow.append(entryBtn);
+        document.documentElement.append(entryHost);
+    };
+    // 这块地方有没有原生界面：取几个采样点最上层的页面元素，跳过视频本身、包着视频的层和铺满大半画面的透明层。
+    // 采样框比入口各边外扩 4px，让开时和原生控件之间留出空隙。
+    const entryBusy = (video, box, x, y, w, h) => {
+        const area = box.width * box.height;
+        const l = x - 4, t = y - 4, r = x + w + 4, b = y + h + 4;
+        for (const [px, py] of [[l, t], [r, t], [l, b], [r, b], [x + w / 2, y + h / 2], [x + w / 2, t], [x + w / 2, b]]) {
+            for (const el of document.elementsFromPoint(px, py)) {
+                if (el === entryHost || el.id === "wmc-overlay") continue;
+                if (el === video || el.contains(video)) break;
+                const r = el.getBoundingClientRect();
+                if (r.width * r.height > area * 0.5) continue;
+                if (!el.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
+                return r;
+            }
+        }
+        return null;
+    };
+    const placeEntry = (video) => {
+        const box = video.getBoundingClientRect();
+        const w = entryBtn.offsetWidth || 24, h = entryBtn.offsetHeight || 24;
+        const right = box.right - 10, x = right - w;
+        let y = box.top + 10;
+        // 从右上角往下找空处：被挡就直接跳到挡住它的元素下面，最多找到画面 60% 高；都占着就留在右上角。
+        for (let at = y; at + h <= box.top + box.height * 0.6;) {
+            const blocker = entryBusy(video, box, x, at, w, h);
+            if (!blocker) { y = at; break; }
+            at = Math.max(at + 8, blocker.bottom + 6);
+        }
+        entryHost.style.transform = `translate(${Math.round(right)}px, ${Math.round(y)}px)`;
+    };
+    const entryTarget = (x, y) => videos().find((video) => {
+        const r = video.getBoundingClientRect();
+        return r.width >= 280 && r.height >= 150 && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+    });
+    const onEntryMove = (x, y, target) => {
+        if (!showEntry || document.fullscreenElement) { hideEntry(); return; }
+        if (entryHost && target === entryHost) { clearTimeout(entryTimer); return; }
+        const video = entryTarget(x, y);
+        if (!video || (current?.video === video && current.shown())) { hideEntry(); return; }
+        ensureEntry();
+        if (!entryShown() || entryVideo !== video) {
+            entryVideo = video;
+            placeEntry(video);
+            entryHost.classList.add("on");
+            // 原生控件常带淡入，等它站稳再看一次要不要让位。
+            clearTimeout(entryRecheck);
+            entryRecheck = setTimeout(() => { if (entryShown() && entryVideo) placeEntry(entryVideo); }, 300);
+        }
+        clearTimeout(entryTimer);
+        entryTimer = setTimeout(hideEntry, ENTRY_IDLE);
+    };
+    document.addEventListener("pointermove", (e) => {
+        if (e.pointerType === "touch" || entryFrame) return;
+        const { clientX, clientY, target } = e;
+        entryFrame = requestAnimationFrame(() => {
+            entryFrame = 0;
+            onEntryMove(clientX, clientY, target);
+        });
+    }, { capture: true, passive: true });
+    document.addEventListener("scroll", hideEntry, { capture: true, passive: true });
+    document.addEventListener("fullscreenchange", hideEntry);
+
     // 播放条在视频框内时，下沿就是视频底边；条画在视频下方时，用包住它的播放窗口或相邻控件。
     // shortcut: 自带控件高度按 48px 估，只在视口放不下、又没测到自定义条时用来避开它。
     function playbackAnchor(video) {
@@ -201,7 +320,7 @@
         sheet.replaceSync(`
             :host { all: initial; }
             .bar { position: relative; box-sizing: border-box;
-                width: 100%; height: 100%; padding: 8px 10px; border-radius: 10px; background: rgba(17,24,39,.94);
+                width: 100%; height: 100%; padding: 8px 10px; border-radius: 10px; background: #111827;
                 color: #f9fafb; font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
                 box-shadow: 0 6px 20px rgba(0,0,0,.35); user-select: none; }
             .identity, .controls { display: flex; align-items: center; gap: 6px; }
@@ -214,6 +333,8 @@
             button { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: center;
                 width: 24px; height: 24px; border-radius: 6px; color: #f9fafb; cursor: pointer; font-size: 13px; }
             button:hover { background: rgba(255,255,255,.14); }
+            /* [WMC] render() 会重写按钮里的图标；按下的若是旧 svg，松手前被换掉就丢 click。让点击始终落在按钮上。 */
+            button svg { pointer-events: none; }
             /* [WMC] 焦点环离开按钮 2px，跟着圆角走，不压住按钮自己的边框。 */
             button:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
             button:disabled { opacity: .4; cursor: not-allowed; background: none; }
@@ -239,15 +360,22 @@
             .track { position: relative; flex: 1; min-width: 28px; height: 16px; display: flex; align-items: center;
                 cursor: pointer; touch-action: none; }
             .rail { position: relative; width: 100%; height: 4px; border-radius: 2px; background: rgba(255,255,255,.28); }
-            .seg { position: absolute; top: -9px; height: 8px; border-radius: 3px; touch-action: none; }
+            /* [WMC] 与总览、细节同一套选块：骑在轨道上的色块，两端收进同色加深的端帽 + 白色竖纹。 */
+            .seg { position: absolute; top: -6px; height: 16px; border-radius: 3px; touch-action: none; }
             .seg:not(.pending) { cursor: grab; }
+            .seg:not(.pending):active { cursor: grabbing; }
             .seg.pending { opacity: .6; box-sizing: border-box; border-right: 2px dashed currentColor; border-radius: 3px 0 0 3px; }
-            .seg.picked { box-shadow: 0 0 0 1.5px #fff; }
+            .seg.picked { z-index: 1; box-shadow: inset 0 0 0 2px #fff, 0 0 0 1px rgba(255,255,255,.9); }
             .seg[hidden] { display: none; }
-            .edge { position: absolute; top: -4px; z-index: 2; width: 8px; height: 16px; cursor: ew-resize;
-                background: rgba(255,255,255,.5); touch-action: none; }
-            .edge.start { left: 0; transform: translateX(-100%); }
-            .edge.end { left: 100%; }
+            .seg .edge { position: absolute; top: 0; z-index: 2; width: 7px; height: 100%; border-radius: 0; cursor: ew-resize;
+                background: rgba(0,0,0,.28); touch-action: none; }
+            .seg .edge::before { content: ""; position: absolute; inset: 0 -4px; }
+            .seg .edge::after { content: ""; position: absolute; left: 50%; top: 50%; width: 2px; height: 8px; border-radius: 1px;
+                transform: translate(-50%, -50%); background: rgba(255,255,255,.85); }
+            .seg .edge:hover { background: rgba(0,0,0,.45); }
+            .seg .edge:hover::after { background: #fff; }
+            .seg .edge.start { left: 0; border-radius: 3px 0 0 3px; }
+            .seg .edge.end { right: 0; border-radius: 0 3px 3px 0; }
             .delete { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%);
                 background: #111827; visibility: hidden; }
             .seg:hover .delete, .seg:focus-within .delete, .seg.picked .delete { visibility: visible; }
@@ -311,9 +439,18 @@
             .ov-clip, .lane-clip { position: absolute; inset: 7px 0 0; overflow: hidden; border-radius: 3px; }
             .ov-shade { position: absolute; top: 0; bottom: 0; background: rgba(0,0,0,.5); pointer-events: none; }
             .ov-win { position: absolute; top: 1px; bottom: 1px; border: 1px solid #93c5fd; border-radius: 2px; background: rgba(147,197,253,.2); cursor: default; }
-            .ov-win .grip { position: absolute; top: -2px; bottom: -2px; width: 8px; cursor: ew-resize; }
-            .ov-win .grip.l { left: -4px; } .ov-win .grip.r { right: -4px; }
-            /* [WMC] 只在按住窗口框、且窗口还能拖动时出手型；全览拖不动，保持箭头。 */
+            /* [WMC] 与细节选段同一套抓手：两端端帽 + 白色竖纹，外侧放宽命中区。 */
+            .ov-win .grip { position: absolute; top: 0; bottom: 0; width: 6px; background: rgba(147,197,253,.55); cursor: ew-resize; }
+            .ov-win .grip::before { content: ""; position: absolute; inset: -2px -4px; }
+            .ov-win .grip::after { content: ""; position: absolute; left: 50%; top: 1px; bottom: 1px; width: 2px; border-radius: 1px;
+                transform: translateX(-50%); background: rgba(255,255,255,.85); }
+            .ov-win .grip:hover { background: #93c5fd; }
+            .ov-win .grip:hover::after { background: #fff; }
+            .ov-win .grip.l { left: 0; } .ov-win .grip.r { right: 0; }
+            /* [WMC] 贴边的一侧没处可拨，收起该侧抓手；全览两侧都收。 */
+            .ov-win.full .grip, .ov-win.at-s .grip.l, .ov-win.at-e .grip.r { display: none; }
+            /* [WMC] 手型＝拖了会跟着走：窗口框能平移时出手型，按住变抓握；全览拖不动，保持箭头。 */
+            .ov-win:not(.full) { cursor: grab; }
             .ov-win:active:not(.full) { cursor: grabbing; }
             .omark { position: absolute; top: 0; bottom: 0; border-radius: 2px; pointer-events: none; }
             .ohead, .dhead { position: absolute; top: 7px; bottom: 0; width: 2px; transform: translateX(-50%); background: #80d7ff; z-index: 3; pointer-events: none; }
@@ -325,10 +462,17 @@
             .ruler span { position: absolute; top: 0; color: #9ca3af; font: 10px/14px ui-monospace, Consolas, monospace; white-space: nowrap; }
             .lane { position: relative; height: 26px; padding-top: 7px; background: #1f2937; background-clip: content-box; touch-action: none; }
             .dseg { position: absolute; top: 5px; height: 16px; border-radius: 3px; touch-action: none; cursor: grab; }
+            .dseg:active { cursor: grabbing; }
             .dseg.pending { cursor: default; }
-            .dseg .h { position: absolute; top: 0; bottom: 0; width: 6px; background: rgba(255,255,255,.72); cursor: ew-resize; z-index: 2; }
-            .dseg .h.s { left: 0; transform: translateX(-100%); }
-            .dseg .h.e { left: 100%; }
+            /* [WMC] 抓手收进选段两端：同色加深的端帽 + 中间一道白色竖纹，悬停加深；外侧再放宽 4px 命中区。 */
+            .dseg .h { position: absolute; top: 0; bottom: 0; width: 7px; background: rgba(0,0,0,.28); cursor: ew-resize; z-index: 2; }
+            .dseg .h::before { content: ""; position: absolute; inset: 0 -4px; }
+            .dseg .h::after { content: ""; position: absolute; left: 50%; top: 50%; width: 2px; height: 8px; border-radius: 1px;
+                transform: translate(-50%, -50%); background: rgba(255,255,255,.85); }
+            .dseg .h:hover { background: rgba(0,0,0,.45); }
+            .dseg .h:hover::after { background: #fff; }
+            .dseg .h.s { left: 0; border-radius: 3px 0 0 3px; }
+            .dseg .h.e { right: 0; border-radius: 0 3px 3px 0; }
             .dseg.pending .h { display: none; }
             .dseg.picked { z-index: 3; box-shadow: inset 0 0 0 2px #fff, 0 0 0 1px rgba(255,255,255,.9); }
             .dhead { z-index: 4; }
@@ -359,7 +503,8 @@
                 line-height: 1.35; font-size: 12px; }
             .session-menu button[aria-current="true"] { outline: 1px solid #93c5fd; }
             .session-menu .empty { padding: 6px 8px; color: #9ca3af; font-size: 12px; }
-            .bar.studio-on { border-radius: 10px 10px 0 0; }
+            /* [WMC] 工作室里浮窗是贴满宽度的底栏，圆角会露出被抬到黑幕之上的页面。 */
+            .bar.studio-on { border-radius: 0; }
             .controls { position: relative; }
             .keys { position: absolute; z-index: 6; top: calc(100% + 6px); left: 148px; width: 300px; padding: 10px 12px;
                 border-radius: 8px; background: #0f172a; border: 1px solid #334155; box-shadow: 0 8px 24px rgba(0,0,0,.45); }
@@ -449,6 +594,17 @@
             .resize.sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
             .resize:focus-visible { outline: 2px solid #60a5fa; }
             .bar:hover { outline: 1px solid rgba(147,197,253,.5); }
+            /* [WMC] 防越界：选块窄到放不下两个端帽时，抓手翻到块外，起点在左、终点在右，不再叠在一起。 */
+            .seg, .dseg, .ov-win { container-type: inline-size; }
+            /* 时间再短，画出来也至少 6px，不缩成一条线；时长下限另由 MIN_CLIP 管。 */
+            .seg, .dseg { min-width: 6px; }
+            @container (max-width: 22px) {
+                .seg .edge.start, .dseg .h.s, .ov-win .grip.l { left: auto; right: 100%; }
+                .seg .edge.end, .dseg .h.e, .ov-win .grip.r { right: auto; left: 100%; }
+                /* 翻到块外后底下没有块色：端帽自带块色，再用内阴影压暗。 */
+                .seg .edge.start, .seg .edge.end, .dseg .h.s, .dseg .h.e { background-color: inherit; box-shadow: inset 0 0 0 99px rgba(0,0,0,.28); }
+                .seg .edge:hover, .dseg .h:hover { box-shadow: inset 0 0 0 99px rgba(0,0,0,.45); }
+            }
         `);
         root.adoptedStyleSheets = [sheet];
         root.innerHTML = `
@@ -528,6 +684,10 @@
         let windowView = null;
         let selectedSeg = -1;
         const MIN_SPAN = 5;
+        // 选段最短 1 秒：切片起点会回退到上一个关键帧（网络视频通常 1–5 秒一个），更短的选段导出来几乎全是回退的部分。
+        const MIN_CLIP = 1;
+        // 不足 1 秒的视频不提供选段，只能下整段：本工具是从网站上粗取一段，不是精剪。
+        const tooShort = () => video.duration > 0 && video.duration < MIN_CLIP;
         root.querySelector(".ov-lab").textContent = msg("wmc_overview");
         root.querySelector(".dt-lab").textContent = msg("wmc_detail");
         root.querySelector(".zoom-out").title = msg("wmc_zoomOut");
@@ -647,7 +807,8 @@
         let sourceDuration = video.duration;
         let resolveVersion = 0;
         let resolving = false;
-        const blocked = () => !capability || capability.selectable === false;
+        const blocked = () => !capability || capability.selectable === false || tooShort();
+        const blockReason = () => tooShort() ? "wmc_reasonTooShort" : capability?.reason || "wmc_reasonUnknownSource";
         // 「没找到播放列表」是临时结论：cacheData 会随播放继续补齐，允许限频重试；
         // 直播/加密/无 Range 是定论，不重试。
         const retryable = () => capability?.reason === "wmc_reasonUnknownSource" && resolveTries < 12;
@@ -830,12 +991,12 @@
                 };
                 edge.addEventListener("pointerenter", openTip);
                 edge.addEventListener("pointerleave", closeTip);
-                // 拖过对方时停在 1ms 外，不让起点和终点对调。
+                // 拖过对方时停在 MIN_CLIP 外，不让起点和终点对调，也不缩成一条线。
                 const adjust = (value) => {
                     const seg = segments[index];
                     if (!seg || !(video.duration > 0)) return;
-                    if (key === "start") seg.start = clamp(value, 0, Math.max(0, seg.end - 0.001));
-                    else seg.end = clamp(value, Math.min(video.duration, seg.start + 0.001), video.duration);
+                    if (key === "start") seg.start = clamp(value, 0, Math.max(0, seg.end - MIN_CLIP));
+                    else seg.end = clamp(value, Math.min(video.duration, seg.start + MIN_CLIP), video.duration);
                     touchSession();
                     render();
                 };
@@ -938,8 +1099,8 @@
                     const seg = segments[index];
                     if (!seg || !(video.duration > 0)) return;
                     const value = detailTime(ev.clientX);
-                    if (key === "start") seg.start = clamp(value, 0, Math.max(0, seg.end - 0.001));
-                    else seg.end = clamp(value, Math.min(video.duration, seg.start + 0.001), video.duration);
+                    if (key === "start") seg.start = clamp(value, 0, Math.max(0, seg.end - MIN_CLIP));
+                    else seg.end = clamp(value, Math.min(video.duration, seg.start + MIN_CLIP), video.duration);
                     touchSession();
                     render();
                     if (spritesOn()) showPreview(ev.clientX, value);
@@ -1008,7 +1169,8 @@
                 const reason = !segments[index] ? "" :
                     !Number.isFinite(begin) || !Number.isFinite(end) ? msg("wmc_rowFormat") :
                     end > video.duration ? chrome.i18n.getMessage("wmc_rowOverflow", stamp(video.duration)) :
-                    begin >= end ? chrome.i18n.getMessage("wmc_rowOrder", [fmt(end, hours), fmt(begin, hours)]) : "";
+                    begin >= end ? chrome.i18n.getMessage("wmc_rowOrder", [fmt(end, hours), fmt(begin, hours)]) :
+                    end - begin < MIN_CLIP - 0.0005 ? msg("wmc_rowTooShort") : "";
                 inputs.forEach((input) => input.setAttribute("aria-invalid", String(!!reason)));
                 row.setAttribute("aria-invalid", String(!!reason));
                 rowError.textContent = reason;
@@ -1203,7 +1365,10 @@
                 window.addEventListener("pointercancel", up, { signal });
             });
         };
-        watch(dhead, (e) => spritesOn() ? previewGesture(e) : { move: scrub });
+        // 拖播放头始终跟手跳转；有雪碧图时顺带出预览，松手后的预览收起沿用 previewGesture。
+        watch(dhead, (e) => spritesOn()
+            ? { ...previewGesture(e), move(ev) { scrub(ev); showPreview(ev.clientX, detailTime(ev.clientX)); } }
+            : { move: scrub });
         watch(ruler, (e) => spritesOn() ? previewGesture(e) : { move: scrub, end: scrub });
         watch(lane, (e) => {
             if (e.target.closest(".dhead, .dseg")) return null;
@@ -1212,7 +1377,8 @@
                 move(ev) {
                     const now = detailTime(ev.clientX), delta = now - last;
                     last = now;
-                    if (Math.abs(delta) > 0.05) moved = true;
+                    // 3px 内算点击：按时间算的阈值在宽窗口下 1px 就超，单击会被当成拖窗口。
+                    if (Math.abs(ev.clientX - e.clientX) > 3) moved = true;
                     if (moved) { windowHold = true; const v = ensureView(); setWindow(v.s - delta, v.e - delta); }
                     if (spritesOn()) showPreview(ev.clientX, detailTime(ev.clientX));
                 },
@@ -1231,7 +1397,9 @@
                 move(ev) {
                     windowHold = true;
                     const now = at(ev); const v = ensureView();
-                    if (edge === "l") setWindow(now, v.e); else setWindow(v.s, now);
+                    // 防越界：两侧至少隔 MIN_SPAN，拖过对方就停住，不推着整个窗口走。
+                    const gap = Math.min(MIN_SPAN, video.duration);
+                    if (edge === "l") setWindow(Math.min(now, v.e - gap), v.e); else setWindow(v.s, Math.max(now, v.s + gap));
                 },
                 end() { windowHold = false; },
             };
@@ -1444,7 +1612,7 @@
             button.addEventListener("blur", close);
         };
         bindTip(play, () => msg("wmc_playPause"));
-        const reasonTip = () => capability?.selectable === false ? msg(capability.reason || "wmc_reasonUnknownSource") : "";
+        const reasonTip = () => tooShort() || capability?.selectable === false ? msg(blockReason()) : "";
         bindTip(add, () => reasonTip() || msg("wmc_add15Tip"));
         bindTip(mark, () => reasonTip() || msg(start !== null ? "wmc_markOutTip" :
             !standard && segments.slice(0, 2).every(Boolean) ? "wmc_moreSegmentsTip" : "wmc_markInTip"));
@@ -1477,10 +1645,25 @@
             const maxBand = Math.max(1, Math.floor(window.innerHeight * 0.6));
             host.style.left = "0px";
             host.style.width = `${window.innerWidth}px`;
-            const content = Math.max(measureStandardHug(), 1);
             const editor = root.querySelector(".editor");
-            const height = Math.min(content, maxBand);
-            editor.style.flex = content > maxBand ? "1" : "none";
+            let height;
+            if (!standard) {
+                // 双行简洁视图把控制行绝对定位，按内容量高会丢掉这一行，底栏塌成媒体行。
+                const size = sizes.compact;
+                const available = Math.max(1, window.innerHeight);
+                if (size.explicit) height = clamp(size.height, 1, available);
+                else {
+                    const single = size.height < COMPACT_DOUBLE_H;
+                    height = Math.min(available, window.innerWidth < COMPACT_SINGLE_MIN || !single ? COMPACT_DOUBLE_H : COMPACT_SINGLE_H);
+                }
+                bar.classList.toggle("roomy", height >= COMPACT_DOUBLE_H);
+                editor.style.flex = "none";
+            } else {
+                bar.classList.remove("roomy");
+                const content = Math.max(measureStandardHug(), 1);
+                height = Math.min(content, maxBand);
+                editor.style.flex = content > maxBand ? "1" : "none";
+            }
             host.style.height = `${height}px`;
             host.style.top = `${Math.max(0, window.innerHeight - height)}px`;
             const picture = Math.max(0, window.innerHeight - height);
@@ -1557,7 +1740,7 @@
                 saved.el.style.setProperty("overflow", "hidden", "important");
                 saved.el.style.setProperty("background-color", "#000", "important");
             }
-            if (!standard) setView(true);
+            if (!standard) setView(true, true);
             else place();
             bar.focus({ preventScroll: true });
         };
@@ -1679,6 +1862,8 @@
                 ovWin.style.left = `${v.s / duration * 100}%`;
                 ovWin.style.width = `${span / duration * 100}%`;
                 ovWin.classList.toggle("full", span >= duration - 0.5);
+                ovWin.classList.toggle("at-s", v.s <= 0.05);
+                ovWin.classList.toggle("at-e", v.e >= duration - 0.05);
                 ohead.style.left = `${pct(video.currentTime, duration)}%`;
                 rangeLabel.textContent = `${fmt(v.s, hours)} – ${fmt(v.e, hours)}`;
                 const step = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600].find((n) => n >= span / 6) || 3600;
@@ -2009,7 +2194,13 @@
             closeSessionMenu();
         }, { signal });
 
-        const setView = (next) => {
+        const setView = (next, stayStudio) => {
+            // 工作室是铺满视口的一层。点到标准或简洁视图就退出，回到贴着播放窗的浮窗。
+            if (studio && !stayStudio) {
+                studioReturnStandard = next;
+                exitStudio();
+                return;
+            }
             const rect = host.getBoundingClientRect();
             standard = next;
             standardView = next;
@@ -2058,7 +2249,7 @@
         };
         const markIn = () => {
             if (blocked()) {
-                showHint(msg(capability?.reason || "wmc_reasonUnknownSource"));
+                showHint(msg(blockReason()));
                 return;
             }
             if (start !== null) {
@@ -2086,13 +2277,15 @@
         };
         const markOut = () => {
             if (blocked()) {
-                showHint(msg(capability?.reason || "wmc_reasonUnknownSource"));
+                showHint(msg(blockReason()));
                 return;
             }
             const now = clamp(video.currentTime, 0, video.duration);
             if (start !== null && !(now > start)) toast("info", msg("wmc_outAfterIn"));
             if (start === null || !(now > start) || segments[pendingSlot]) return;
-            segments[pendingSlot] = { start, end: now };
+            // 出点离入点不足 MIN_CLIP 就补足；补到片尾还不够，入点往前让。
+            const end = Math.min(video.duration, Math.max(now, start + MIN_CLIP));
+            segments[pendingSlot] = { start: Math.max(0, Math.min(start, end - MIN_CLIP)), end };
             start = null;
             showHint("");
             touchSession();
@@ -2108,11 +2301,11 @@
         // 标准视图的「＋ 添加 15 秒」：在播放头处放一段 15 秒。
         add.addEventListener("click", () => {
             if (add.getAttribute("aria-disabled") === "true") {
-                if (blocked()) showHint(msg(capability?.reason || "wmc_reasonUnknownSource"));
+                if (blocked()) showHint(msg(blockReason()));
                 return;
             }
             const index = takeSlot(true);
-            const begin = Math.min(Math.max(0, video.currentTime), Math.max(0, video.duration - .001));
+            const begin = Math.min(Math.max(0, video.currentTime), Math.max(0, video.duration - MIN_CLIP));
             segments[index] = { start: begin, end: Math.min(video.duration, begin + 15) };
             showHint("");
             touchSession();
@@ -2377,6 +2570,7 @@
             { label: msg("wmc_undo"), run });
         return { video, renderBadge, renderMedia, snapshot, restore, offerUndo,
             hasSegments: () => start !== null || segments.some(Boolean),
+            shown: () => host.style.display !== "none",
             show: () => {
                 host.style.display = "";
                 renderMedia();

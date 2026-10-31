@@ -2,32 +2,38 @@
 (() => {
     const button = document.getElementById("wmc-open-overlay");
     const error = document.getElementById("wmc-open-error");
-    const autoShow = document.getElementById("wmc-auto-overlay");
     const msg = (key) => chrome.i18n.getMessage(key);
     const showError = (key) => {
         error.textContent = msg(key);
         error.hidden = false;
     };
     button.textContent = msg("wmc_openOverlay");
-    autoShow.nextElementSibling.textContent = msg("wmc_autoShowOverlay");
-    chrome.storage.local.get({ wmcAutoShow: false }, (settings) => {
-        if (chrome.runtime.lastError) showError("wmc_overlaySettingFailed");
-        else autoShow.checked = settings.wmcAutoShow === true;
-        autoShow.disabled = false;
-    });
-    autoShow.addEventListener("change", async () => {
-        const enabled = autoShow.checked;
-        autoShow.disabled = true;
-        error.hidden = true;
-        try {
-            await chrome.storage.local.set({ wmcAutoShow: enabled });
-        } catch {
-            autoShow.checked = !enabled;
-            showError("wmc_overlaySettingFailed");
-        } finally {
-            autoShow.disabled = false;
-        }
-    });
+    // 浮窗相关的本机开关：自动显示默认关，播放器入口默认开。
+    for (const [id, key, label, fallback] of [
+        ["wmc-auto-overlay", "wmcAutoShow", "wmc_autoShowOverlay", false],
+        ["wmc-show-entry", "wmcShowEntry", "wmc_showEntry", true],
+    ]) {
+        const box = document.getElementById(id);
+        box.nextElementSibling.textContent = msg(label);
+        chrome.storage.local.get({ [key]: fallback }, (settings) => {
+            if (chrome.runtime.lastError) showError("wmc_overlaySettingFailed");
+            else box.checked = settings[key] === true;
+            box.disabled = false;
+        });
+        box.addEventListener("change", async () => {
+            const enabled = box.checked;
+            box.disabled = true;
+            error.hidden = true;
+            try {
+                await chrome.storage.local.set({ [key]: enabled });
+            } catch {
+                box.checked = !enabled;
+                showError("wmc_overlaySettingFailed");
+            } finally {
+                box.disabled = false;
+            }
+        });
+    }
     button.addEventListener("click", async () => {
         button.disabled = true;
         error.textContent = "";

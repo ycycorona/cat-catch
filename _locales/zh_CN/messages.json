@@ -1244,6 +1244,12 @@
   "wmc_resizeOverlay": {
     "message": "调整浮窗大小"
   },
+  "wmc_entryLabel": {
+    "message": "选段下载"
+  },
+  "wmc_showEntry": {
+    "message": "在播放器上显示入口"
+  },
   "wmc_autoShowOverlay": {
     "message": "自动显示浮窗"
   },
@@ -1452,6 +1458,12 @@
   },
   "wmc_rowOrder": {
     "message": "终点 $1 不晚于起点 $2"
+  },
+  "wmc_reasonTooShort": {
+    "message": "视频不足 1 秒，只能下载整段"
+  },
+  "wmc_rowTooShort": {
+    "message": "选段至少 1 秒"
   },
   "wmc_fixRows": {
     "message": "有选段时间不对，改好才能下载"

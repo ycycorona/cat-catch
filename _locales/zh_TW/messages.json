@@ -1131,5 +1131,17 @@
   },
   "wmc_sessionSegments": {
     "message": "$1 段"
+  },
+  "wmc_entryLabel": {
+    "message": "選段下載"
+  },
+  "wmc_showEntry": {
+    "message": "在播放器上顯示入口"
+  },
+  "wmc_reasonTooShort": {
+    "message": "影片不足 1 秒，只能下載整段"
+  },
+  "wmc_rowTooShort": {
+    "message": "選段至少 1 秒"
   }
 }
